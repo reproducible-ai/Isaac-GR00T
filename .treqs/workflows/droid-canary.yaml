@@ -1,5 +1,9 @@
-name: Isaac GR00T N1.7 DROID one-step canary
-working_directory: .
+name: Isaac GR00T N1.7 DROID one-step reproduction
+
+# Generated from the reproducible-ai clean-DAG scaffold. Every workload step is
+# an explicit named `roar run`; TReqs executes those stages without nesting a
+# second tracer. Generated data and model files live under tracked directories.
+
 secrets:
   - HF_TOKEN
 
@@ -7,12 +11,12 @@ setup:
   command: |
     set -euo pipefail
     export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    rm -rf *.egg-info src/*.egg-info
     timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
+    command -v uv >/dev/null
     test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
     if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git-lfs >/dev/null 2>&1; then
       timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
-      # A fresh EC2 boot may still be finishing unattended upgrades. Ask apt to
-      # wait for dpkg instead of racing it, while retaining an outer cost bound.
       timeout --signal=TERM 420 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg git-lfs
     fi
     ffmpeg -version | head -1
@@ -20,34 +24,53 @@ setup:
     timeout --signal=TERM 180 git lfs pull --include="scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl" --exclude=""
     python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
     nvidia-smi
-    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-editable --extra dev
+    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-install-project --extra dev
+    test -f .venv/pyvenv.cfg
+    grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
+    uv tool install --python 3.12 --force --with huggingface-hub roar-cli==0.4.4
+    sudo -n ln -sf "$(command -v roar)" /usr/local/bin/roar
+    test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.4"
+    roar tracer use preload
+    roar tracer
+    roar init || true
     timeout --signal=TERM 120 uv run --no-sync pytest -q tests/treqs/test_droid_canary_contract.py
   trace: "off"
 
-fetch:
+fetch_droid:
   command: |
     set -euo pipefail
-    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
-    export HF_HOME=/tmp/isaac-groot-hf
-    timeout --signal=TERM 2400 uv run --no-sync python .treqs/scripts/prepare_droid_canary.py
-  trace: run
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    roar run -n fetch_droid --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
+  trace: "off"
 
 train:
   command: |
     set -euo pipefail
-    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
-    export HF_HOME=/tmp/isaac-groot-hf
-    timeout --signal=TERM 1800 uv run --no-sync python .treqs/scripts/run_droid_canary.py
-  trace: run
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    roar run -n train --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
+  trace: "off"
 
 evaluate:
   command: |
     set -euo pipefail
-    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
-    timeout --signal=TERM 300 uv run --no-sync python .treqs/scripts/verify_droid_canary.py
-  trace: run
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    roar run -n evaluate --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
+  trace: "off"
 
-teardown:
+label:
   command: |
-    nvidia-smi --query-gpu=name,memory.used,memory.total --format=csv,noheader || true
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    while IFS= read -r model_artifact; do
+      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.1 license.id=LicenseRef-NVIDIA-Open-Model-License license.name='NVIDIA Open Model License' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url=https://github.com/reproducible-ai/Isaac-GR00T/blob/main/README.md
+    done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-1/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
+  trace: "off"
+
+publish:
+  glaas_creds: true
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    roar status --untracked-dirs
+    roar put artifacts/droid-canary/checkpoint-1 hf://reproducible-ai/isaac-groot/droid-canary --public --yes --no-tag -m "Isaac GR00T N1.7: one optimizer step on three pinned DROID episodes; canary artifact"
   trace: "off"

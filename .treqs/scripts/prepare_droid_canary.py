@@ -23,6 +23,7 @@ from droid_canary_contract import (
     EPISODE_COUNT,
     INPUT_MANIFEST_PATH,
     MIN_GPU_MEMORY_MIB,
+    PUBLISH_REPO_ID,
 )
 
 
@@ -70,7 +71,29 @@ def validate_runtime() -> dict[str, object]:
 
 
 def download_models(token: str) -> dict[str, str]:
-    from huggingface_hub import snapshot_download
+    from huggingface_hub import HfApi, snapshot_download
+    from huggingface_hub.errors import HfHubHTTPError
+
+    api = HfApi()
+    # Check all permissions and the pre-created publication container before
+    # transferring multi-gigabyte snapshots. These calls are read-only.
+    api.model_info(
+        repo_id=BASE_MODEL_ID,
+        revision=BASE_MODEL_REVISION,
+        token=token,
+    )
+    api.model_info(
+        repo_id=BACKBONE_MODEL_ID,
+        revision=BACKBONE_MODEL_REVISION,
+        token=token,
+    )
+    try:
+        api.model_info(repo_id=PUBLISH_REPO_ID, token=token)
+    except HfHubHTTPError as exc:
+        raise RuntimeError(
+            f"The pre-created Hugging Face publication repository {PUBLISH_REPO_ID!r} "
+            "is not accessible to HF_TOKEN"
+        ) from exc
 
     base_path = snapshot_download(
         repo_id=BASE_MODEL_ID,
@@ -89,7 +112,8 @@ def download_models(token: str) -> dict[str, str]:
 
 
 def download_dataset() -> None:
-    if DATASET_PATH.exists():
+    existing = [path for path in DATASET_PATH.rglob("*") if path.name != ".gitkeep"]
+    if existing:
         raise RuntimeError(f"Refusing to reuse existing canary dataset: {DATASET_PATH}")
     subprocess.run(
         [
@@ -111,7 +135,7 @@ def download_dataset() -> None:
 def dataset_manifest() -> dict[str, object]:
     files = []
     for path in sorted(DATASET_PATH.rglob("*")):
-        if path.is_file():
+        if path.is_file() and path.name != ".gitkeep":
             files.append(
                 {
                     "path": str(path.relative_to(DATASET_PATH)),

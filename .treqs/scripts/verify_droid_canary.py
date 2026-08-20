@@ -6,7 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from droid_canary_contract import ARTIFACT_ROOT, INPUT_MANIFEST_PATH, RESULT_PATH
+from droid_canary_contract import CHECKPOINT_PATH, INPUT_MANIFEST_PATH, RESULT_PATH
 
 
 def sha256_file(path: Path) -> str:
@@ -21,7 +21,7 @@ def main() -> None:
     if not INPUT_MANIFEST_PATH.is_file():
         raise RuntimeError(f"Missing input manifest: {INPUT_MANIFEST_PATH}")
 
-    checkpoint = ARTIFACT_ROOT / "checkpoint-1"
+    checkpoint = CHECKPOINT_PATH
     if not checkpoint.is_dir():
         raise RuntimeError(f"Missing one-step checkpoint: {checkpoint}")
     model_files = sorted(checkpoint.glob("*.safetensors")) + sorted(
@@ -45,7 +45,7 @@ def main() -> None:
         "checkpoint": str(checkpoint),
         "model_files": [
             {
-                "path": str(path.relative_to(ARTIFACT_ROOT)),
+                "path": str(path),
                 "size": path.stat().st_size,
                 "sha256": sha256_file(path),
             }
