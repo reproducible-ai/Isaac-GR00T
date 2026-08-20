@@ -58,3 +58,10 @@ def test_droid_download_forwards_the_dataset_revision(monkeypatch, tmp_path):
     assert all(call["repo_id"] == "lerobot/droid_1.0.1" for call in calls)
     assert all(call["repo_type"] == "dataset" for call in calls)
     assert all(call["revision"] == "b" * 40 for call in calls)
+
+
+def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
+    workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
+
+    assert "timeout --signal=TERM 420" in workflow
+    assert "DPkg::Lock::Timeout=360" in workflow

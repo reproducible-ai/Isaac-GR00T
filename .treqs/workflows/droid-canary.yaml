@@ -9,7 +9,9 @@ setup:
     test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
     if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git-lfs >/dev/null 2>&1; then
       timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
-      timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg git-lfs
+      # A fresh EC2 boot may still be finishing unattended upgrades. Ask apt to
+      # wait for dpkg instead of racing it, while retaining an outer cost bound.
+      timeout --signal=TERM 420 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg git-lfs
     fi
     ffmpeg -version | head -1
     git lfs install --local
