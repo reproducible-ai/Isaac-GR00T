@@ -39,6 +39,9 @@ class FinetuneConfig:
     embodiment_tag: str
     """Embodiment tag (name or value, case-insensitive). See EmbodimentTag for known tags."""
 
+    backbone_model_revision: str | None = None
+    """Immutable Hugging Face revision for the VLM backbone model."""
+
     modality_config_path: str | None = None
     """
     Path to a Python file defining the modality configuration for the given embodiment. 

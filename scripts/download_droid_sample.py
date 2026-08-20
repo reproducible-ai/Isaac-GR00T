@@ -46,13 +46,6 @@ import logging
 from pathlib import Path
 import subprocess
 
-from gr00t.data.embodiment_tags import EmbodimentTag
-from gr00t.data.state_action.droid_frame import compute_eef_9d
-from gr00t.data.stats import generate_rel_stats, generate_stats
-import jsonlines
-import numpy as np
-import pyarrow.parquet as pq
-
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -70,7 +63,7 @@ VIDEO_KEYS = [
 ]
 
 
-def download_droid_files(cache_dir: Path) -> None:
+def download_droid_files(cache_dir: Path, revision: str | None = None) -> None:
     """Download minimal files from the DROID v3.0 dataset."""
     from huggingface_hub import hf_hub_download
 
@@ -95,11 +88,18 @@ def download_droid_files(cache_dir: Path) -> None:
             repo_type="dataset",
             filename=fname,
             local_dir=str(cache_dir),
+            revision=revision,
         )
 
 
 def extract_episodes(cache_dir: Path, output_dir: Path, num_episodes: int) -> None:
     """Convert downloaded v3.0 data to GR00T LeRobot v2.0 format."""
+    from gr00t.data.embodiment_tags import EmbodimentTag
+    from gr00t.data.state_action.droid_frame import compute_eef_9d
+    from gr00t.data.stats import generate_rel_stats, generate_stats
+    import jsonlines
+    import numpy as np
+    import pyarrow.parquet as pq
 
     output_dir.mkdir(parents=True, exist_ok=True)
     meta_dir = output_dir / "meta"
@@ -374,6 +374,11 @@ def main():
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--num-episodes", type=int, default=DEFAULT_NUM_EPISODES)
     parser.add_argument("--cache-dir", default=None)
+    parser.add_argument(
+        "--revision",
+        default=None,
+        help="Immutable Hugging Face dataset revision to download.",
+    )
     args = parser.parse_args()
 
     cache_dir = Path(args.cache_dir or "/tmp/droid_download_cache")
@@ -383,7 +388,7 @@ def main():
         logger.info(f"Output already exists: {output_dir} — delete it to regenerate.")
         return
 
-    download_droid_files(cache_dir)
+    download_droid_files(cache_dir, revision=args.revision)
     extract_episodes(cache_dir, output_dir, args.num_episodes)
 
     logger.info("\nTo run inference:")

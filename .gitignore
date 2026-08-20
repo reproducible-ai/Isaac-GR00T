@@ -156,6 +156,9 @@ episode_data/
 third_parties/
 *.rdb
 dump.rdb
+.roar/
+/artifacts/droid-canary/*
+!/artifacts/droid-canary/.gitkeep
 
 # Docker
 # Note: docker/.dockerignore is tracked — it controls the Docker build context

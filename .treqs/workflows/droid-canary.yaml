@@ -1,0 +1,49 @@
+name: Isaac GR00T N1.7 DROID one-step canary
+working_directory: .
+
+setup:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
+    test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
+    if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git-lfs >/dev/null 2>&1; then
+      timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
+      timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg git-lfs
+    fi
+    ffmpeg -version | head -1
+    git lfs install --local
+    timeout --signal=TERM 180 git lfs pull --include="scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl" --exclude=""
+    python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
+    nvidia-smi
+    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-editable
+    timeout --signal=TERM 120 uv run --no-sync pytest -q tests/treqs/test_droid_canary_contract.py
+  trace: "off"
+
+fetch:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    export HF_HOME=/tmp/isaac-groot-hf
+    timeout --signal=TERM 2400 uv run --no-sync python .treqs/scripts/prepare_droid_canary.py
+  trace: run
+
+train:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    export HF_HOME=/tmp/isaac-groot-hf
+    timeout --signal=TERM 1800 uv run --no-sync python .treqs/scripts/run_droid_canary.py
+  trace: run
+
+evaluate:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    timeout --signal=TERM 300 uv run --no-sync python .treqs/scripts/verify_droid_canary.py
+  trace: run
+
+teardown:
+  command: |
+    nvidia-smi --query-gpu=name,memory.used,memory.total --format=csv,noheader || true
+  trace: "off"
