@@ -70,18 +70,20 @@ def validate_runtime() -> dict[str, object]:
 
 
 def download_models(token: str) -> dict[str, str]:
-    from huggingface_hub import HfApi, snapshot_download
+    from huggingface_hub import hf_hub_download, snapshot_download
 
-    api = HfApi()
-    # Check both gated inputs before transferring multi-gigabyte snapshots.
-    # These calls are read-only.
-    api.model_info(
+    # Fetch a small repository file from both gated inputs before transferring
+    # multi-gigabyte snapshots. Model metadata can remain public even when the
+    # token cannot read gated files, so model_info() is not a sufficient check.
+    hf_hub_download(
         repo_id=BASE_MODEL_ID,
+        filename=".gitattributes",
         revision=BASE_MODEL_REVISION,
         token=token,
     )
-    api.model_info(
+    hf_hub_download(
         repo_id=BACKBONE_MODEL_ID,
+        filename=".gitattributes",
         revision=BACKBONE_MODEL_REVISION,
         token=token,
     )

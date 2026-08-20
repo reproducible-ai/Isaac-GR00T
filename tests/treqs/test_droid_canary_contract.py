@@ -81,24 +81,31 @@ def test_model_access_is_checked_before_snapshot_transfers(monkeypatch):
     prepare = load_canary_script("prepare_droid_canary.py")
     events = []
 
-    class FakeApi:
-        def model_info(self, *, repo_id, revision=None, token=None):
-            events.append(("info", repo_id, revision, token))
+    def fake_hf_hub_download(*, repo_id, filename, revision, token):
+        events.append(("access", repo_id, filename, revision, token))
+        return f"/tmp/{revision}/{filename}"
 
     def fake_snapshot_download(*, repo_id, revision, token):
         events.append(("snapshot", repo_id, revision, token))
         return f"/tmp/{revision}"
 
-    monkeypatch.setattr(huggingface_hub, "HfApi", FakeApi)
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake_hf_hub_download)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
 
     prepare.download_models("read-token")
 
     assert events[:2] == [
-        ("info", contract.BASE_MODEL_ID, contract.BASE_MODEL_REVISION, "read-token"),
         (
-            "info",
+            "access",
+            contract.BASE_MODEL_ID,
+            ".gitattributes",
+            contract.BASE_MODEL_REVISION,
+            "read-token",
+        ),
+        (
+            "access",
             contract.BACKBONE_MODEL_ID,
+            ".gitattributes",
             contract.BACKBONE_MODEL_REVISION,
             "read-token",
         ),
