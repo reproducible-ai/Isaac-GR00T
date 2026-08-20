@@ -65,3 +65,10 @@ def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
 
     assert "timeout --signal=TERM 420" in workflow
     assert "DPkg::Lock::Timeout=360" in workflow
+
+
+def test_canary_setup_installs_the_test_runner_before_validation():
+    workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
+
+    assert "uv sync --locked --python 3.12 --no-editable --extra dev" in workflow
+    assert "uv run --no-sync pytest" in workflow

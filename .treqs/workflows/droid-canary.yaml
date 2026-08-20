@@ -18,7 +18,7 @@ setup:
     timeout --signal=TERM 180 git lfs pull --include="scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl" --exclude=""
     python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
     nvidia-smi
-    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-editable
+    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-editable --extra dev
     timeout --signal=TERM 120 uv run --no-sync pytest -q tests/treqs/test_droid_canary_contract.py
   trace: "off"
 
