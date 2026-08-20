@@ -12,6 +12,7 @@ Reproducible AI L40S target.
 - Dataset: `lerobot/droid_1.0.1@0eabc778f959c54b8c5aa3626cc1128d2d2e54d4`
 - Python dependencies: the committed `uv.lock`, installed with `uv sync --locked`
 - Compute target: `e4d609eb-db96-40d2-bc74-7e13d6e75e8b`
+- Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
 The workflow downloads model snapshots by immutable revision into an ephemeral
 Hugging Face cache. The DROID converter records hashes for every generated

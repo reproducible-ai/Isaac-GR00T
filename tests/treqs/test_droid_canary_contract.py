@@ -72,3 +72,9 @@ def test_canary_setup_installs_the_test_runner_before_validation():
 
     assert "uv sync --locked --python 3.12 --no-editable --extra dev" in workflow
     assert "uv run --no-sync pytest" in workflow
+
+
+def test_canary_explicitly_requests_the_gated_model_secret():
+    workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
+
+    assert "secrets:\n  - HF_TOKEN\n" in workflow

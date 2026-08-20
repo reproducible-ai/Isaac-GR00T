@@ -1,5 +1,7 @@
 name: Isaac GR00T N1.7 DROID one-step canary
 working_directory: .
+secrets:
+  - HF_TOKEN
 
 setup:
   command: |
