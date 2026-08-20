@@ -92,19 +92,18 @@ def test_model_access_is_checked_before_snapshot_transfers(monkeypatch):
     monkeypatch.setattr(huggingface_hub, "HfApi", FakeApi)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
 
-    prepare.download_models("read-write-token")
+    prepare.download_models("read-token")
 
-    assert events[:3] == [
-        ("info", contract.BASE_MODEL_ID, contract.BASE_MODEL_REVISION, "read-write-token"),
+    assert events[:2] == [
+        ("info", contract.BASE_MODEL_ID, contract.BASE_MODEL_REVISION, "read-token"),
         (
             "info",
             contract.BACKBONE_MODEL_ID,
             contract.BACKBONE_MODEL_REVISION,
-            "read-write-token",
+            "read-token",
         ),
-        ("info", contract.PUBLISH_REPO_ID, None, "read-write-token"),
     ]
-    assert [event[0] for event in events[3:]] == ["snapshot", "snapshot"]
+    assert [event[0] for event in events[2:]] == ["snapshot", "snapshot"]
 
 
 def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
@@ -127,7 +126,6 @@ def test_canary_setup_pins_an_isolated_roar_runtime():
     assert "command -v uv" in setup
     assert "include-system-site-packages = false" in setup
     assert "roar-cli==0.4.4" in setup
-    assert "--with huggingface-hub" in setup
     assert "env PATH=/usr/local/bin:/usr/bin:/bin roar --version" in setup
     assert "roar tracer use preload" in setup
     assert "roar init" in setup
@@ -139,26 +137,21 @@ def test_workload_stages_are_named_roar_runs_without_nested_tracing():
     for stage_name in ("fetch_droid", "train", "evaluate"):
         stage = workflow[stage_name]
         assert stage["trace"] == "off"
-        assert f"roar run -n {stage_name} --wandb-to-trackio --" in stage["command"]
+        assert f"roar run -n {stage_name} --" in stage["command"]
         assert "PYTHONPATH=.:.treqs/scripts" in stage["command"]
-        assert "TRACKIO_SPACE_ID=reproducible-ai/experiments" in stage["command"]
+        assert "--wandb-to-trackio" not in stage["command"]
+        assert "TRACKIO_SPACE_ID" not in stage["command"]
 
 
-def test_publish_is_labeled_gated_and_delegated():
+def test_checkpoint_is_labeled_without_a_publish_stage():
     workflow = load_workflow()
     label = workflow["label"]
-    publish = workflow["publish"]
 
     assert label["trace"] == "off"
     assert "roar label set artifact" in label["command"]
     assert "LicenseRef-NVIDIA-Open-Model-License" in label["command"]
-    assert publish["trace"] == "off"
-    assert publish["glaas_creds"] is True
-    assert "roar status --untracked-dirs" in publish["command"]
-    assert (
-        "roar put artifacts/droid-canary/checkpoint-1 hf://reproducible-ai/isaac-groot/droid-canary"
-    ) in publish["command"]
-    assert "--public --yes --no-tag" in publish["command"]
+    assert "publish" not in workflow
+    assert "roar put" not in (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
 
 def test_generated_inputs_and_outputs_use_tracked_directories():

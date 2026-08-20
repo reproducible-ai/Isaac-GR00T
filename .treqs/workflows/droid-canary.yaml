@@ -27,7 +27,7 @@ setup:
     timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-install-project --extra dev
     test -f .venv/pyvenv.cfg
     grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
-    uv tool install --python 3.12 --force --with huggingface-hub roar-cli==0.4.4
+    uv tool install --python 3.12 --force roar-cli==0.4.4
     sudo -n ln -sf "$(command -v roar)" /usr/local/bin/roar
     test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.4"
     roar tracer use preload
@@ -40,21 +40,21 @@ fetch_droid:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n fetch_droid --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
+    roar run -n fetch_droid -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
   trace: "off"
 
 train:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n train --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
+    roar run -n train -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
   trace: "off"
 
 evaluate:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n evaluate --wandb-to-trackio -- env PYTHONPATH=.:.treqs/scripts TRACKIO_SPACE_ID=reproducible-ai/experiments PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
+    roar run -n evaluate -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
   trace: "off"
 
 label:
@@ -64,13 +64,4 @@ label:
     while IFS= read -r model_artifact; do
       roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.1 license.id=LicenseRef-NVIDIA-Open-Model-License license.name='NVIDIA Open Model License' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url=https://github.com/reproducible-ai/Isaac-GR00T/blob/main/README.md
     done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-1/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
-  trace: "off"
-
-publish:
-  glaas_creds: true
-  command: |
-    set -euo pipefail
-    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar status --untracked-dirs
-    roar put artifacts/droid-canary/checkpoint-1 hf://reproducible-ai/isaac-groot/droid-canary --public --yes --no-tag -m "Isaac GR00T N1.7: one optimizer step on three pinned DROID episodes; canary artifact"
   trace: "off"

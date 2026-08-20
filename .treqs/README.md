@@ -16,16 +16,14 @@ Reproducible AI L40S target.
 - Compute target: `e4d609eb-db96-40d2-bc74-7e13d6e75e8b`
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
-`HF_TOKEN` must belong to an account that has accepted access to both NVIDIA
-model repositories and can write to the pre-created
-`reproducible-ai/isaac-groot` Hugging Face repository. The workflow uses the
-Hugging Face SDK only to read the pinned upstream inputs. Publication is a
-separate `roar put` stage; the workflow never calls the Hub upload API directly.
+`HF_TOKEN` needs read access to both NVIDIA model repositories. The workflow
+uses the Hugging Face SDK only to read the pinned upstream inputs; it does not
+upload a model or synchronize metrics to a Hugging Face Space.
 
-The workflow checks access to both model revisions and the pre-created publish
-repository before transferring model bytes. It downloads the snapshots into an
-ephemeral Hugging Face cache. The DROID converter records hashes for every
-generated sample file in `artifacts/droid-canary/input-manifest.json`.
+The workflow checks access to both model revisions before transferring model
+bytes, then downloads the snapshots into an ephemeral Hugging Face cache. The
+DROID converter records hashes for every generated sample file in
+`artifacts/droid-canary/input-manifest.json`.
 It also materializes the lockfile's architecture-specific Git LFS wheel before
 asking `uv` to validate the cross-platform lock.
 
@@ -34,22 +32,19 @@ asking `uv` to validate the cross-platform lock.
 The paid workload is one clean, named ROAR DAG:
 
 1. `fetch_droid` downloads and converts the pinned inputs;
-2. `train` performs the bounded optimizer step and forwards the repository's
-   existing W&B metrics through ROAR's Trackio bridge;
+2. `train` performs the bounded optimizer step with external experiment logging
+   disabled;
 3. `evaluate` verifies the checkpoint and writes its evaluation record inside
    the checkpoint directory;
 4. `label` attaches model, version, license, description, and documentation
-   metadata to every model-weight shard;
-5. `publish` gates on `roar status --untracked-dirs`, then publishes the complete
-   checkpoint directory through `roar put` with delegated GLaaS credentials.
+   metadata to every model-weight shard locally.
 
 All workflow stages use `trace: off`; the three workload stages invoke
 `roar run -n ...` explicitly so the captured commands and tracer ABI are stable.
-The publication destination must be created and approved before the workflow is
-run. A third-party reproduction must omit the publication step:
+This canary deliberately stops before artifact publication.
 
 ```bash
-roar reproduce <lineage-hash> --lineage --run --no-puts
+roar reproduce <lineage-hash> --lineage --run
 ```
 
 ## Canary contract
@@ -62,9 +57,8 @@ The canary succeeds only if it:
 4. performs exactly one optimizer step without tuning the LLM or visual encoder;
 5. writes a step-1 checkpoint and
    `artifacts/droid-canary/checkpoint-1/evaluation.json`;
-6. labels the model weights and publishes the evaluated checkpoint with one
-   delegated `roar put` operation.
+6. labels the model weights locally without uploading them.
 
 The setup, fetch, and train commands have an aggregate timeout below two hours,
 keeping the run below the approved $5 cap at the target's observed hourly rate.
-This is a publication-path canary, not a quality or convergence claim.
+This is a training-path canary, not a quality or convergence claim.

@@ -14,7 +14,5 @@ DATASET_PATH = ARTIFACT_ROOT / "dataset"
 CHECKPOINT_PATH = ARTIFACT_ROOT / "checkpoint-1"
 INPUT_MANIFEST_PATH = ARTIFACT_ROOT / "input-manifest.json"
 RESULT_PATH = CHECKPOINT_PATH / "evaluation.json"
-PUBLISH_REPO_ID = "reproducible-ai/isaac-groot"
-PUBLISH_DESTINATION = f"hf://{PUBLISH_REPO_ID}/droid-canary"
 EPISODE_COUNT = 3
 MIN_GPU_MEMORY_MIB = 40 * 1024

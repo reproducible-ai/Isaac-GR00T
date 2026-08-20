@@ -48,7 +48,7 @@ def main() -> None:
             "SHARD_SIZE": "8",
             "NUM_SHARDS_PER_EPOCH": "8",
             "EPISODE_SAMPLING_RATE": "1.0",
-            "USE_WANDB": "1",
+            "USE_WANDB": "0",
             "CUDA_VISIBLE_DEVICES": "0",
         }
     )
@@ -62,10 +62,6 @@ def main() -> None:
             str(DATASET_PATH),
             "--embodiment-tag",
             "OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT",
-            "--experiment-name",
-            "droid-canary-step-1",
-            "--wandb-project",
-            "isaac-groot-droid-canary",
             "--output-dir",
             str(ARTIFACT_ROOT),
             "--save-only-model",
