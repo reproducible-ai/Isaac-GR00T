@@ -148,6 +148,14 @@ def test_canary_setup_installs_the_test_runner_before_validation():
     assert "uv run --no-sync pytest" in workflow
 
 
+def test_canary_setup_validates_the_torchcodec_native_runtime():
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    setup = load_workflow()["setup"]["command"]
+
+    assert "torchcodec==0.8.1; platform_machine == 'x86_64'" in pyproject
+    assert "from torchcodec.decoders import VideoDecoder" in setup
+
+
 def test_canary_setup_pins_an_isolated_roar_runtime():
     setup = load_workflow()["setup"]["command"]
 

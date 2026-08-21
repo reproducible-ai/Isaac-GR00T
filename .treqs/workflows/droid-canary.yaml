@@ -27,6 +27,7 @@ setup:
     timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-install-project --extra dev
     test -f .venv/pyvenv.cfg
     grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
+    uv run --no-sync python -c "from torchcodec.decoders import VideoDecoder; print('torchcodec decoder import OK')"
     uv tool install --python 3.12 --force roar-cli==0.4.4
     sudo -n ln -sf "$(command -v roar)" /usr/local/bin/roar
     test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.4"
