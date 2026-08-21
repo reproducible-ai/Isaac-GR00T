@@ -107,6 +107,11 @@ def download_dataset() -> None:
     existing = [path for path in DATASET_PATH.rglob("*") if path.name != ".gitkeep"]
     if existing:
         raise RuntimeError(f"Refusing to reuse existing canary dataset: {DATASET_PATH}")
+    # The repository tracks this otherwise-empty directory with .gitkeep, but
+    # download_droid_sample.py deliberately refuses any pre-existing output
+    # directory. Remove the validated placeholder scaffold before invoking it.
+    if DATASET_PATH.exists():
+        shutil.rmtree(DATASET_PATH)
     subprocess.run(
         [
             sys.executable,

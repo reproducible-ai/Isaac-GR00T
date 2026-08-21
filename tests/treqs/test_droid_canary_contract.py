@@ -113,6 +113,27 @@ def test_model_access_is_checked_before_snapshot_transfers(monkeypatch):
     assert [event[0] for event in events[2:]] == ["snapshot", "snapshot"]
 
 
+def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
+    prepare = load_canary_script("prepare_droid_canary.py")
+    dataset_path = tmp_path / "dataset"
+    dataset_path.mkdir()
+    (dataset_path / ".gitkeep").touch()
+    calls = []
+
+    def fake_run(command, *, check):
+        assert check is True
+        assert not dataset_path.exists()
+        calls.append(command)
+
+    monkeypatch.setattr(prepare, "DATASET_PATH", dataset_path)
+    monkeypatch.setattr(prepare.subprocess, "run", fake_run)
+
+    prepare.download_dataset()
+
+    assert len(calls) == 1
+    assert calls[0][-1] == str(dataset_path)
+
+
 def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
     workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
