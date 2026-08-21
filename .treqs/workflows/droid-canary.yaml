@@ -24,7 +24,10 @@ setup:
     timeout --signal=TERM 180 git lfs pull --include="scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl" --exclude=""
     python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
     nvidia-smi
-    timeout --signal=TERM 1200 uv sync --locked --python 3.12 --no-install-project --extra dev
+    timeout --signal=TERM 180 uv python install 3.12.13
+    MANAGED_PYTHON="$(UV_PYTHON_PREFERENCE=only-managed uv python find 3.12.13)"
+    test "$("$MANAGED_PYTHON" --version)" = "Python 3.12.13"
+    timeout --signal=TERM 1200 uv sync --locked --python "$MANAGED_PYTHON" --no-install-project --extra dev
     test -f .venv/pyvenv.cfg
     grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
     uv run --no-sync python -c "from torchcodec.decoders import VideoDecoder; print('torchcodec decoder import OK')"

@@ -144,7 +144,9 @@ def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
 def test_canary_setup_installs_the_test_runner_before_validation():
     workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
-    assert "uv sync --locked --python 3.12 --no-install-project --extra dev" in workflow
+    assert "uv python install 3.12.13" in workflow
+    assert "UV_PYTHON_PREFERENCE=only-managed uv python find 3.12.13" in workflow
+    assert 'uv sync --locked --python "$MANAGED_PYTHON"' in workflow
     assert "uv run --no-sync pytest" in workflow
 
 
