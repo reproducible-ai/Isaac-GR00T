@@ -159,9 +159,6 @@ dump.rdb
 .roar/
 /artifacts/droid-canary/*
 !/artifacts/droid-canary/.gitkeep
-!/artifacts/droid-canary/dataset/
-/artifacts/droid-canary/dataset/*
-!/artifacts/droid-canary/dataset/.gitkeep
 !/artifacts/droid-canary/checkpoint-1/
 /artifacts/droid-canary/checkpoint-1/*
 !/artifacts/droid-canary/checkpoint-1/.gitkeep

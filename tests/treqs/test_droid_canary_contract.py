@@ -182,13 +182,13 @@ def test_checkpoint_is_labeled_without_a_publish_stage():
     assert "roar put" not in (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
 
-def test_generated_inputs_and_outputs_use_tracked_directories():
+def test_generated_paths_preserve_a_clean_checkout():
     contract = load_contract()
 
     assert contract.DATASET_PATH == contract.ARTIFACT_ROOT / "dataset"
     assert contract.CHECKPOINT_PATH == contract.ARTIFACT_ROOT / "checkpoint-1"
     assert contract.RESULT_PATH == contract.CHECKPOINT_PATH / "evaluation.json"
-    assert (ROOT / contract.DATASET_PATH / ".gitkeep").is_file()
+    assert not (ROOT / contract.DATASET_PATH).exists()
     assert (ROOT / contract.CHECKPOINT_PATH / ".gitkeep").is_file()
 
 
