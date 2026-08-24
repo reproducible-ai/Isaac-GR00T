@@ -7,5 +7,5 @@ smoke:
     roar tracer use preload
     roar init || true
     mkdir -p artifacts/lineage-scope-smoke
-    roar run -n lineage_scope_x_public -- python3 -c "from pathlib import Path; Path('artifacts/lineage-scope-smoke/x.txt').write_bytes(b'reproducible-ai-dev-scope-smoke-x-v1\\n')"
+    roar run -n lineage_scope_x_public -- python3 -c "from pathlib import Path; payload=b'reproducible-ai-dev-scope-smoke-x-v1\\n'; Path('artifacts/lineage-scope-smoke/x.txt').write_bytes(payload)"
   trace: "off"
