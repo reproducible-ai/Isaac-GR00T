@@ -44,6 +44,23 @@ _GATED_BACKBONE_HINT = (
 _GATED_MARKERS = ("gated repo", "is restricted", "access to model", "401 client error")
 
 
+def _attention_loading_kwargs(use_flash_attention: bool) -> dict[str, str]:
+    """Select attention explicitly so checkpoint metadata cannot override the caller."""
+    if not use_flash_attention:
+        return {"attn_implementation": "sdpa"}
+
+    try:
+        import flash_attn  # noqa: F401
+
+        return {"attn_implementation": "flash_attention_2"}
+    except ImportError:
+        logger.warning(
+            "flash_attn is not installed. Falling back to sdpa attention. "
+            "Install flash-attn for better performance: pip install flash-attn"
+        )
+        return {"attn_implementation": "sdpa"}
+
+
 def _is_gated_repo_error(exc: BaseException) -> bool:
     """True if ``exc`` (or any exception it wraps) is a gated/forbidden HF download.
 
@@ -163,19 +180,8 @@ class Qwen3Backbone(torch.nn.Module):
 
         super().__init__()
 
-        # Add attention kwargs
-        extra_kwargs = {}
-        if use_flash_attention:
-            try:
-                import flash_attn  # noqa: F401
-
-                extra_kwargs["attn_implementation"] = "flash_attention_2"
-            except ImportError:
-                logger.warning(
-                    "flash_attn is not installed. Falling back to sdpa attention. "
-                    "Install flash-attn for better performance: pip install flash-attn"
-                )
-                extra_kwargs["attn_implementation"] = "sdpa"
+        # Select attention explicitly; the base checkpoint itself may name a backend.
+        extra_kwargs = _attention_loading_kwargs(use_flash_attention)
         if load_bf16:
             extra_kwargs["torch_dtype"] = torch.bfloat16
 
