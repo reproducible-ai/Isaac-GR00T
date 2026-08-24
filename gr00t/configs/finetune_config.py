@@ -61,6 +61,9 @@ class FinetuneConfig:
     tune_diffusion_model: bool = True
     """If True, fine-tune the diffusion-based action decoder (if present in the model)."""
 
+    use_flash_attention: bool = True
+    """If True, use FlashAttention for the vision-language backbone; otherwise use SDPA."""
+
     state_dropout_prob: float = 0.2
     """
     Dropout probability applied to state inputs for regularization during training.

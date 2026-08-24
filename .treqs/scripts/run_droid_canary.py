@@ -66,6 +66,7 @@ def main() -> None:
             str(ARTIFACT_ROOT),
             "--save-only-model",
             "--",
+            "--no-use-flash-attention",
             "--backbone-model-revision",
             BACKBONE_MODEL_REVISION,
         ],

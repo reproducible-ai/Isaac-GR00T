@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import tomllib
 
 from gr00t.configs.finetune_config import FinetuneConfig
 import huggingface_hub
@@ -167,6 +168,21 @@ def test_canary_setup_validates_the_torchcodec_native_runtime():
 
     assert "torchcodec==0.8.1; platform_machine == 'x86_64'" in pyproject
     assert "from torchcodec.decoders import VideoDecoder" in setup
+
+
+def test_canary_records_pypi_reproducible_gpu_packages():
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    sources = pyproject["tool"]["uv"]["sources"]
+    run_script = (SCRIPTS_DIR / "run_droid_canary.py").read_text()
+
+    for package in ("torch", "torchvision"):
+        assert sources[package] == [
+            {
+                "index": "pytorch-cu128",
+                "marker": "sys_platform == 'linux' and platform_machine == 'aarch64'",
+            }
+        ]
+    assert '"--no-use-flash-attention"' in run_script
 
 
 def test_canary_setup_pins_an_isolated_roar_runtime():
