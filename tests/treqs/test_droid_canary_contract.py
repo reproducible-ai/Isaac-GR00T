@@ -153,6 +153,16 @@ def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
     assert "DPkg::Lock::Timeout=360" in workflow
 
 
+def test_canary_setup_supports_sudo_and_root_only_images():
+    setup = load_workflow()["setup"]["command"]
+
+    assert "if command -v sudo" in setup
+    assert 'elif [ "$(id -u)" -eq 0 ]' in setup
+    assert '"${PRIVILEGE[@]}"' in setup
+    assert "timeout --signal=TERM 180 sudo" not in setup
+    assert "sudo -n ln -sf" not in setup
+
+
 def test_canary_setup_installs_the_test_runner_before_validation():
     workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 

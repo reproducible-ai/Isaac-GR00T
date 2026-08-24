@@ -11,13 +11,21 @@ setup:
   command: |
     set -euo pipefail
     export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    if command -v sudo >/dev/null 2>&1; then
+      PRIVILEGE=(sudo -n)
+    elif [ "$(id -u)" -eq 0 ]; then
+      PRIVILEGE=()
+    else
+      echo "setup requires root access or passwordless sudo" >&2
+      exit 1
+    fi
     rm -rf *.egg-info src/*.egg-info
     timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
     command -v uv >/dev/null
     test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
     if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git-lfs >/dev/null 2>&1; then
-      timeout --signal=TERM 180 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get update
-      timeout --signal=TERM 420 sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg git-lfs
+      timeout --signal=TERM 180 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update
+      timeout --signal=TERM 420 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg git-lfs
     fi
     ffmpeg -version | head -1
     git lfs install --local
@@ -32,7 +40,7 @@ setup:
     grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
     uv run --no-sync python -c "from torchcodec.decoders import VideoDecoder; print('torchcodec decoder import OK')"
     uv tool install --python 3.12 --force roar-cli==0.4.4
-    sudo -n ln -sf "$(command -v roar)" /usr/local/bin/roar
+    "${PRIVILEGE[@]}" ln -sf "$(command -v roar)" /usr/local/bin/roar
     test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.4"
     roar tracer use preload
     roar tracer
