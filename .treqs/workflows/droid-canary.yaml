@@ -44,21 +44,21 @@ fetch_droid:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n fetch_droid -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
+    roar run -n fetch_droid -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
   trace: "off"
 
 train:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n train -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
+    roar run -n train -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
   trace: "off"
 
 evaluate:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n evaluate -- env PYTHONPATH=.:.treqs/scripts PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
+    roar run -n evaluate -- env PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
   trace: "off"
 
 label:

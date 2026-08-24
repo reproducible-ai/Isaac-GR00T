@@ -115,7 +115,8 @@ def download_dataset() -> None:
     subprocess.run(
         [
             sys.executable,
-            "scripts/download_droid_sample.py",
+            "-m",
+            "scripts.download_droid_sample",
             "--revision",
             DATASET_REVISION,
             "--num-episodes",

@@ -76,6 +76,17 @@ def test_droid_download_forwards_the_dataset_revision(monkeypatch, tmp_path):
     assert all(call["revision"] == "b" * 40 for call in calls)
 
 
+def test_canary_launches_repo_modules_without_replacing_pythonpath():
+    workflow = load_workflow()
+    prepare = (SCRIPTS_DIR / "prepare_droid_canary.py").read_text()
+    finetune = (ROOT / "examples" / "finetune.sh").read_text()
+
+    for stage_name in ("fetch_droid", "train", "evaluate"):
+        assert "PYTHONPATH=" not in workflow[stage_name]["command"]
+    assert '"-m",\n            "scripts.download_droid_sample"' in prepare
+    assert "    -m\n    gr00t.experiment.launch_finetune" in finetune
+
+
 def test_model_access_is_checked_before_snapshot_transfers(monkeypatch):
     contract = load_contract()
     prepare = load_canary_script("prepare_droid_canary.py")
@@ -176,7 +187,7 @@ def test_workload_stages_are_named_roar_runs_without_nested_tracing():
         stage = workflow[stage_name]
         assert stage["trace"] == "off"
         assert f"roar run -n {stage_name} --" in stage["command"]
-        assert "PYTHONPATH=.:.treqs/scripts" in stage["command"]
+        assert "PYTHONPATH=" not in stage["command"]
         assert "--wandb-to-trackio" not in stage["command"]
         assert "TRACKIO_SPACE_ID" not in stage["command"]
 

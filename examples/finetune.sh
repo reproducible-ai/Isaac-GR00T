@@ -141,7 +141,8 @@ if [ "$USE_WANDB" = "1" ]; then
 fi
 
 LAUNCH_CMD=(
-    gr00t/experiment/launch_finetune.py
+    -m
+    gr00t.experiment.launch_finetune
     --base_model_path "$BASE_MODEL_PATH"
     --dataset_path "$DATASET_PATH"
     --embodiment_tag "$EMBODIMENT_TAG"
