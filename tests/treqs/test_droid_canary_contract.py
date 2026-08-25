@@ -311,7 +311,8 @@ def test_canary_setup_pins_an_isolated_roar_runtime():
 
     assert "command -v uv" in setup
     assert "include-system-site-packages = false" in setup
-    assert "roar-cli==0.4.4" in setup
+    assert "roar-cli==0.4.5" in setup
+    assert 'roar --version)" = "roar, version 0.4.5"' in setup
     assert "--with huggingface-hub" in setup
     assert "env PATH=/usr/local/bin:/usr/bin:/bin roar --version" in setup
     assert "roar tracer use preload" in setup

@@ -12,7 +12,7 @@ Reproducible AI L40S target.
 - Dataset: `lerobot/droid_1.0.1@0eabc778f959c54b8c5aa3626cc1128d2d2e54d4`
 - Python dependencies: the committed `uv.lock`, installed without replacing the
   checked-out `gr00t` source with a separately built project package
-- Lineage runtime: `roar-cli==0.4.4` with the pinned `preload` tracer
+- Lineage runtime: `roar-cli==0.4.5` with the pinned `preload` tracer
 - Compute target: `5ad26838-4267-402d-b8aa-0bd271041be3`
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
