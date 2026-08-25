@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import tomllib
 
 from gr00t.configs.finetune_config import FinetuneConfig
 import huggingface_hub
+from safetensors.torch import save_file
 from scripts import download_droid_sample
+import torch
 import yaml
 
 
@@ -178,6 +181,39 @@ def test_canary_setup_validates_the_torchcodec_native_runtime():
 
     assert "torchcodec==0.8.1; platform_machine == 'x86_64'" in pyproject
     assert "from torchcodec.decoders import VideoDecoder" in setup
+
+
+def test_canary_evaluation_opens_the_safetensors_checkpoint(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-1"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        '{"global_step": 1, "log_history": [{"loss": 0.125}]}\n'
+    )
+    save_file(
+        {
+            "action_head.bias": torch.zeros(2),
+            "action_head.weight": torch.zeros((2, 3)),
+        },
+        checkpoint / "model.safetensors",
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    verify.main()
+
+    result = json.loads(result_path.read_text())
+    assert result["status"] == "passed"
+    assert result["model_files"][0]["tensor_count"] == 2
+    assert result["model_files"][0]["first_tensor"] == {
+        "name": "action_head.bias",
+        "shape": [2],
+    }
 
 
 def test_canary_records_pypi_reproducible_gpu_packages():
