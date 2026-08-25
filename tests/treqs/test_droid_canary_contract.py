@@ -334,6 +334,8 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     workflow = load_workflow()
     label = workflow["label"]
     publish = workflow["publish"]
+    model_card = (ROOT / ".treqs" / "assets" / "droid-canary-model-card.md").read_text()
+    front_matter = yaml.safe_load(model_card.split("---", 2)[1])
 
     assert label["trace"] == "off"
     assert "roar label set artifact" in label["command"]
@@ -345,6 +347,8 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "--public --yes --no-tag" in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
     assert "/tmp/isaac-groot-hf" not in publish["command"]
+    assert front_matter["license"] == "other"
+    assert front_matter["license_name"] == "nvidia-license"
 
 
 def test_package_copies_upstream_notices_and_writes_release_metadata(

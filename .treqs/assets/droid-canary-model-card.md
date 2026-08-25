@@ -1,6 +1,6 @@
 ---
 license: other
-license_name: NVIDIA License
+license_name: nvidia-license
 license_link: https://huggingface.co/nvidia/GR00T-N1.7-3B/blob/2fc962b973bccdd5d8ce4f67cc63b264d6886495/LICENSE
 base_model: nvidia/GR00T-N1.7-3B
 base_model_relation: finetune
