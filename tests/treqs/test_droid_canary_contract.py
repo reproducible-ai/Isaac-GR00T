@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import importlib.util
+from io import BytesIO
 import json
 from pathlib import Path
 import sys
 import tomllib
+from urllib.error import HTTPError
 
 from gr00t.configs.finetune_config import FinetuneConfig
 import huggingface_hub
+import pytest
 from safetensors.torch import save_file
 from scripts import download_droid_sample
 import torch
@@ -126,6 +129,78 @@ def test_model_access_is_checked_before_snapshot_transfers(monkeypatch):
         ),
     ]
     assert [event[0] for event in events[2:]] == ["snapshot", "snapshot"]
+
+
+def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatch):
+    check = load_canary_script("check_hf_access.py")
+    requests = []
+
+    def fake_urlopen(request, *, timeout):
+        assert timeout == 30
+        requests.append(request)
+        if request.get_method() == "POST":
+            return BytesIO(b'{"files":[{"uploadMode":"regular"}]}')
+        return BytesIO(b"ok")
+
+    monkeypatch.setattr(check, "urlopen", fake_urlopen)
+    monkeypatch.setenv("HF_TOKEN", "scoped-token")
+
+    check.main()
+
+    assert len(requests) == 3
+    assert all(
+        request.get_header("Authorization") == "Bearer scoped-token"
+        for request in requests
+    )
+    assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
+    write_request = next(request for request in requests if request.get_method() == "POST")
+    assert "reproducible-ai/GR00T/preupload/main" in write_request.full_url
+    assert json.loads(write_request.data)["files"][0]["path"] == (
+        ".hf-write-permission-check"
+    )
+    setup = load_workflow()["setup"]["command"]
+    assert setup.index("check_hf_access.py") < setup.index("pip install")
+
+
+def test_hf_preflight_explains_the_gated_repo_permission(monkeypatch):
+    check = load_canary_script("check_hf_access.py")
+
+    def forbidden(request, *, timeout):
+        raise HTTPError(request.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(check, "urlopen", forbidden)
+
+    with pytest.raises(RuntimeError, match="fine-grained token permission"):
+        check.check_access("gated Cosmos backbone", "https://example.test/model", "token")
+
+
+def test_hf_write_preflight_is_non_mutating_and_explains_missing_permission(monkeypatch):
+    check = load_canary_script("check_hf_access.py")
+
+    def forbidden(request, *, timeout):
+        assert request.full_url.endswith("/preupload/main")
+        raise HTTPError(request.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(check, "urlopen", forbidden)
+
+    with pytest.raises(RuntimeError, match="write access to reproducible-ai/GR00T"):
+        check.check_write_access("token")
+
+    script = (SCRIPTS_DIR / "check_hf_access.py").read_text()
+    for mutation in ("upload_file", "create_commit", "delete_file", "create_repo"):
+        assert mutation not in script
+
+
+def test_diagnostic_hf_preflight_is_untraced_and_does_not_publish():
+    workflow = yaml.safe_load(
+        (ROOT / ".treqs" / "workflows" / "hf-access-preflight.yaml").read_text()
+    )
+
+    assert workflow["secrets"] == ["HF_TOKEN"]
+    assert workflow["check_hf_access"]["trace"] == "off"
+    assert "check_hf_access.py" in workflow["check_hf_access"]["command"]
+    assert "roar" not in workflow["check_hf_access"]["command"]
+    assert "put" not in workflow["check_hf_access"]["command"]
 
 
 def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):

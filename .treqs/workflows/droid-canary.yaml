@@ -19,6 +19,7 @@ setup:
       echo "setup requires root access or passwordless sudo" >&2
       exit 1
     fi
+    timeout --signal=TERM 60 python3 .treqs/scripts/check_hf_access.py
     rm -rf *.egg-info src/*.egg-info
     timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
     command -v uv >/dev/null

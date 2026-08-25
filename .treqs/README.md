@@ -21,7 +21,13 @@ to the pre-created `reproducible-ai/GR00T` model repository. Workload scripts us
 the Hugging Face SDK only to read pinned upstream inputs; publication is handled
 by `roar put`, and no metrics are synchronized to a Hugging Face Space.
 
-The workflow checks access to both model revisions before transferring model
+Before installing the multi-gigabyte environment, setup checks that the token can
+read both pinned model revisions and see the pre-created publication repository.
+The check uses Hugging Face's non-mutating pre-upload negotiation endpoint to
+verify write permission without creating a file or commit. The same check can be
+run by itself with `.treqs/workflows/hf-access-preflight.yaml` before launching
+the paid canary.
+The fetch step checks model access again immediately before transferring model
 bytes, then downloads the snapshots into an ephemeral Hugging Face cache. The
 DROID converter records hashes for every generated sample file in
 `artifacts/droid-canary/input-manifest.json`.

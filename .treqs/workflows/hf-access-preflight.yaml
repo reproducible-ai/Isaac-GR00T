@@ -1,0 +1,12 @@
+name: Hugging Face access preflight
+
+# This diagnostic checks the exact credential path used by the paid canary but
+# intentionally performs no training, upload, or lineage publication.
+secrets:
+  - HF_TOKEN
+
+check_hf_access:
+  command: |
+    set -euo pipefail
+    timeout --signal=TERM 60 python3 .treqs/scripts/check_hf_access.py
+  trace: "off"
