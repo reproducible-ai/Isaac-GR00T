@@ -13,7 +13,7 @@ Reproducible AI L40S target.
 - Python dependencies: the committed `uv.lock`, installed without replacing the
   checked-out `gr00t` source with a separately built project package
 - Lineage runtime: `roar-cli==0.4.4` with the pinned `preload` tracer
-- Compute target: `e4d609eb-db96-40d2-bc74-7e13d6e75e8b`
+- Compute target: `5ad26838-4267-402d-b8aa-0bd271041be3`
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
 `HF_TOKEN` needs read access to both NVIDIA model repositories. The workflow
@@ -34,8 +34,9 @@ The paid workload is one clean, named ROAR DAG:
 1. `fetch_droid` downloads and converts the pinned inputs;
 2. `train` performs the bounded optimizer step with external experiment logging
    disabled;
-3. `evaluate` verifies the checkpoint and writes its evaluation record inside
-   the checkpoint directory;
+3. `evaluate` opens every generated safetensors shard, validates its tensor
+   metadata without materializing the full model, and writes its evaluation
+   record inside the checkpoint directory;
 4. `label` attaches model, version, license, description, and documentation
    metadata to every model-weight shard locally.
 
@@ -55,8 +56,9 @@ The canary succeeds only if it:
 2. downloads the exact base-model, gated-backbone, and dataset revisions;
 3. converts exactly three DROID episodes;
 4. performs exactly one optimizer step without tuning the LLM or visual encoder;
-5. writes a step-1 checkpoint and
-   `artifacts/droid-canary/checkpoint-1/evaluation.json`;
+5. writes a step-1 checkpoint whose safetensors shards can be opened and an
+   `artifacts/droid-canary/checkpoint-1/evaluation.json` record containing their
+   hashes and tensor metadata;
 6. labels the model weights locally without uploading them.
 
 The setup, fetch, and train commands have an aggregate timeout below two hours,
