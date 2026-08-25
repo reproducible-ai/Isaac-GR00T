@@ -20,8 +20,7 @@ from droid_canary_contract import (
 READ_CHECKS = (
     (
         "GR00T base model",
-        f"https://huggingface.co/{BASE_MODEL_ID}/resolve/"
-        f"{BASE_MODEL_REVISION}/.gitattributes",
+        f"https://huggingface.co/{BASE_MODEL_ID}/resolve/{BASE_MODEL_REVISION}/.gitattributes",
     ),
     (
         "gated Cosmos backbone",
@@ -90,9 +89,7 @@ def check_write_access(token: str) -> None:
             f"{PUBLICATION_REPO_ID}."
         ) from error
     except (URLError, json.JSONDecodeError) as error:
-        raise RuntimeError(
-            f"Hugging Face publication write preflight failed: {error}"
-        ) from error
+        raise RuntimeError(f"Hugging Face publication write preflight failed: {error}") from error
     files = result.get("files", [])
     if len(files) != 1 or files[0].get("uploadMode") not in ("regular", "lfs"):
         raise RuntimeError("Hugging Face publication write preflight returned an invalid response")

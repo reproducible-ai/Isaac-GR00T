@@ -148,16 +148,11 @@ def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatc
     check.main()
 
     assert len(requests) == 3
-    assert all(
-        request.get_header("Authorization") == "Bearer scoped-token"
-        for request in requests
-    )
+    assert all(request.get_header("Authorization") == "Bearer scoped-token" for request in requests)
     assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
     write_request = next(request for request in requests if request.get_method() == "POST")
     assert "reproducible-ai/GR00T/preupload/main" in write_request.full_url
-    assert json.loads(write_request.data)["files"][0]["path"] == (
-        ".hf-write-permission-check"
-    )
+    assert json.loads(write_request.data)["files"][0]["path"] == (".hf-write-permission-check")
     setup = load_workflow()["setup"]["command"]
     assert setup.index("check_hf_access.py") < setup.index("pip install")
 
@@ -344,6 +339,7 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "non-commercial research/evaluation" in label["command"]
     assert publish["trace"] == "off"
     assert publish["glaas_creds"] is True
+    assert publish["command"].count("roar put ") == 1
     assert "hf://reproducible-ai/GR00T/droid-canary-0.0.1" in publish["command"]
     assert "--public --yes --no-tag" in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
@@ -352,9 +348,7 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert front_matter["license_name"] == "nvidia-license"
 
 
-def test_package_copies_upstream_notices_and_writes_release_metadata(
-    monkeypatch, tmp_path
-):
+def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch, tmp_path):
     package = load_canary_script("package_droid_canary.py")
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
@@ -400,9 +394,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(
     assert (checkpoint / "LICENSE").read_text() == "base license\n"
     assert "source=" + "c" * 40 in (checkpoint / "README.md").read_text()
     assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
-    assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == (
-        "cosmos license\n"
-    )
+    assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
     assert publication["repository"] == "reproducible-ai/GR00T"
     assert publication["version"] == "droid-canary-0.0.1"

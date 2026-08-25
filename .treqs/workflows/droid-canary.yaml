@@ -97,6 +97,5 @@ publish:
       test -s "$CHECKPOINT/$document"
     done
     roar status --untracked-dirs
-    roar put "$CHECKPOINT/README.md" "$CHECKPOINT/LICENSE" "$CHECKPOINT/NOTICE" "$CHECKPOINT/NVIDIA_OPEN_MODEL_LICENSE.md" hf://reproducible-ai/GR00T --public --yes --no-tag -m "GR00T DROID canary model card and license notices"
     roar put "$CHECKPOINT" hf://reproducible-ai/GR00T/droid-canary-0.0.1 --public --yes --no-tag -m "GR00T N1.7 one-step DROID reproducibility canary"
   trace: "off"

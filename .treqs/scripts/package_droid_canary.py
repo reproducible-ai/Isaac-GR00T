@@ -127,9 +127,7 @@ def main() -> None:
     (CHECKPOINT_PATH / "publication.json").write_text(
         json.dumps(publication, indent=2, sort_keys=True) + "\n"
     )
-    print(
-        f"Packaged checkpoint for hf://{PUBLICATION_REPO_ID}/{PUBLICATION_VERSION}"
-    )
+    print(f"Packaged checkpoint for hf://{PUBLICATION_REPO_ID}/{PUBLICATION_VERSION}")
 
 
 if __name__ == "__main__":
