@@ -39,7 +39,7 @@ setup:
     test -f .venv/pyvenv.cfg
     grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
     uv run --no-sync python -c "from torchcodec.decoders import VideoDecoder; print('torchcodec decoder import OK')"
-    uv tool install --python 3.12 --force roar-cli==0.4.4
+    uv tool install --python 3.12 --force --with huggingface-hub roar-cli==0.4.4
     "${PRIVILEGE[@]}" ln -sf "$(command -v roar)" /usr/local/bin/roar
     test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.4"
     roar tracer use preload
@@ -69,11 +69,33 @@ evaluate:
     roar run -n evaluate -- env PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
   trace: "off"
 
+package:
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    roar run -n package -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 300 python .treqs/scripts/package_droid_canary.py
+  trace: "off"
+
 label:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    SOURCE_COMMIT="$(git rev-parse HEAD)"
     while IFS= read -r model_artifact; do
-      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.1 license.id=LicenseRef-NVIDIA-Open-Model-License license.name='NVIDIA Open Model License' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url=https://github.com/reproducible-ai/Isaac-GR00T/blob/main/README.md
+      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.1 license.id=LicenseRef-NVIDIA-License license.name='NVIDIA License (non-commercial research/evaluation)' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url="https://github.com/reproducible-ai/Isaac-GR00T/blob/${SOURCE_COMMIT}/.treqs/README.md"
     done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-1/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
+  trace: "off"
+
+publish:
+  glaas_creds: true
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    CHECKPOINT=artifacts/droid-canary/checkpoint-1
+    for document in README.md LICENSE NOTICE NVIDIA_OPEN_MODEL_LICENSE.md; do
+      test -s "$CHECKPOINT/$document"
+    done
+    roar status --untracked-dirs
+    roar put "$CHECKPOINT/README.md" "$CHECKPOINT/LICENSE" "$CHECKPOINT/NOTICE" "$CHECKPOINT/NVIDIA_OPEN_MODEL_LICENSE.md" hf://reproducible-ai/GR00T --public --yes --no-tag -m "GR00T DROID canary model card and license notices"
+    roar put "$CHECKPOINT" hf://reproducible-ai/GR00T/droid-canary-0.0.1 --public --yes --no-tag -m "GR00T N1.7 one-step DROID reproducibility canary"
   trace: "off"

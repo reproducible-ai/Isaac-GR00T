@@ -85,7 +85,7 @@ def test_canary_launches_repo_modules_without_replacing_pythonpath():
     prepare = (SCRIPTS_DIR / "prepare_droid_canary.py").read_text()
     finetune = (ROOT / "examples" / "finetune.sh").read_text()
 
-    for stage_name in ("fetch_droid", "train", "evaluate"):
+    for stage_name in ("fetch_droid", "train", "evaluate", "package"):
         assert "PYTHONPATH=" not in workflow[stage_name]["command"]
     assert '"-m",\n            "scripts.download_droid_sample"' in prepare
     assert "    -m\n    gr00t.experiment.launch_finetune" in finetune
@@ -237,6 +237,7 @@ def test_canary_setup_pins_an_isolated_roar_runtime():
     assert "command -v uv" in setup
     assert "include-system-site-packages = false" in setup
     assert "roar-cli==0.4.4" in setup
+    assert "--with huggingface-hub" in setup
     assert "env PATH=/usr/local/bin:/usr/bin:/bin roar --version" in setup
     assert "roar tracer use preload" in setup
     assert "roar init" in setup
@@ -245,7 +246,7 @@ def test_canary_setup_pins_an_isolated_roar_runtime():
 def test_workload_stages_are_named_roar_runs_without_nested_tracing():
     workflow = load_workflow()
 
-    for stage_name in ("fetch_droid", "train", "evaluate"):
+    for stage_name in ("fetch_droid", "train", "evaluate", "package"):
         stage = workflow[stage_name]
         assert stage["trace"] == "off"
         assert f"roar run -n {stage_name} --" in stage["command"]
@@ -254,15 +255,77 @@ def test_workload_stages_are_named_roar_runs_without_nested_tracing():
         assert "TRACKIO_SPACE_ID" not in stage["command"]
 
 
-def test_checkpoint_is_labeled_without_a_publish_stage():
+def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     workflow = load_workflow()
     label = workflow["label"]
+    publish = workflow["publish"]
 
     assert label["trace"] == "off"
     assert "roar label set artifact" in label["command"]
-    assert "LicenseRef-NVIDIA-Open-Model-License" in label["command"]
-    assert "publish" not in workflow
-    assert "roar put" not in (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
+    assert "LicenseRef-NVIDIA-License" in label["command"]
+    assert "non-commercial research/evaluation" in label["command"]
+    assert publish["trace"] == "off"
+    assert publish["glaas_creds"] is True
+    assert "hf://reproducible-ai/GR00T/droid-canary-0.0.1" in publish["command"]
+    assert "--public --yes --no-tag" in publish["command"]
+    assert "artifacts/droid-canary/dataset" not in publish["command"]
+    assert "/tmp/isaac-groot-hf" not in publish["command"]
+
+
+def test_package_copies_upstream_notices_and_writes_release_metadata(
+    monkeypatch, tmp_path
+):
+    package = load_canary_script("package_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    result_path = checkpoint / "evaluation.json"
+    result_path.write_text('{"status": "passed"}\n')
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "droid-canary-model-card.md").write_text(
+        "source={{SOURCE_COMMIT}}\n"
+        "base={{BASE_MODEL_REVISION}}\n"
+        "backbone={{BACKBONE_MODEL_REVISION}}\n"
+        "dataset={{DATASET_REVISION}}\n"
+        "version={{PUBLICATION_VERSION}}\n"
+    )
+    (assets / "NVIDIA_OPEN_MODEL_LICENSE.md").write_text("cosmos license\n")
+    base_snapshot = tmp_path / "base"
+    backbone_snapshot = tmp_path / "backbone"
+    base_snapshot.mkdir()
+    backbone_snapshot.mkdir()
+    (base_snapshot / "LICENSE").write_text("base license\n")
+    for filename in package.UPSTREAM_NOTICE_FILES:
+        (base_snapshot / filename).write_text(f"base {filename}\n")
+    (backbone_snapshot / "README.md").write_text("cosmos readme\n")
+
+    def fake_snapshot(repo_id, revision, token):
+        assert revision
+        assert token == "write-token"
+        if repo_id == package.BASE_MODEL_ID:
+            return base_snapshot
+        if repo_id == package.BACKBONE_MODEL_ID:
+            return backbone_snapshot
+        raise AssertionError(repo_id)
+
+    monkeypatch.setattr(package, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(package, "RESULT_PATH", result_path)
+    monkeypatch.setattr(package, "ASSET_ROOT", assets)
+    monkeypatch.setattr(package, "cached_snapshot", fake_snapshot)
+    monkeypatch.setattr(package, "source_commit", lambda: "c" * 40)
+    monkeypatch.setenv("HF_TOKEN", "write-token")
+
+    package.main()
+
+    assert (checkpoint / "LICENSE").read_text() == "base license\n"
+    assert "source=" + "c" * 40 in (checkpoint / "README.md").read_text()
+    assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
+    assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == (
+        "cosmos license\n"
+    )
+    publication = json.loads((checkpoint / "publication.json").read_text())
+    assert publication["repository"] == "reproducible-ai/GR00T"
+    assert publication["version"] == "droid-canary-0.0.1"
 
 
 def test_generated_paths_preserve_a_clean_checkout():
@@ -275,7 +338,7 @@ def test_generated_paths_preserve_a_clean_checkout():
     assert (ROOT / contract.CHECKPOINT_PATH / ".gitkeep").is_file()
 
 
-def test_hugging_face_sdk_is_read_only_in_canary_scripts():
+def test_hugging_face_sdk_uploads_are_owned_by_roar_not_workload_scripts():
     scripts = "\n".join(path.read_text() for path in sorted(SCRIPTS_DIR.glob("*droid_canary.py")))
 
     assert "snapshot_download" in scripts

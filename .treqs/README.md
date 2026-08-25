@@ -16,9 +16,10 @@ Reproducible AI L40S target.
 - Compute target: `5ad26838-4267-402d-b8aa-0bd271041be3`
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
-`HF_TOKEN` needs read access to both NVIDIA model repositories. The workflow
-uses the Hugging Face SDK only to read the pinned upstream inputs; it does not
-upload a model or synchronize metrics to a Hugging Face Space.
+`HF_TOKEN` needs read access to both NVIDIA model repositories and write access
+to the pre-created `reproducible-ai/GR00T` model repository. Workload scripts use
+the Hugging Face SDK only to read pinned upstream inputs; publication is handled
+by `roar put`, and no metrics are synchronized to a Hugging Face Space.
 
 The workflow checks access to both model revisions before transferring model
 bytes, then downloads the snapshots into an ephemeral Hugging Face cache. The
@@ -37,12 +38,16 @@ The paid workload is one clean, named ROAR DAG:
 3. `evaluate` opens every generated safetensors shard, validates its tensor
    metadata without materializing the full model, and writes its evaluation
    record inside the checkpoint directory;
-4. `label` attaches model, version, license, description, and documentation
-   metadata to every model-weight shard locally.
+4. `package` copies the pinned upstream license and safety notices, adds the
+   required Cosmos attribution, and writes a reproducibility model card;
+5. `label` attaches model, version, license, description, and documentation
+   metadata to every model-weight shard locally;
+6. `publish` first uploads the small model-card/license files as a write-access
+   preflight, then publishes only the checkpoint directory to
+   `hf://reproducible-ai/GR00T/droid-canary-0.0.1`.
 
-All workflow stages use `trace: off`; the three workload stages invoke
+All workflow stages use `trace: off`; the four workload stages invoke
 `roar run -n ...` explicitly so the captured commands and tracer ABI are stable.
-This canary deliberately stops before artifact publication.
 
 ```bash
 roar reproduce <lineage-hash> --lineage --run
@@ -59,7 +64,9 @@ The canary succeeds only if it:
 5. writes a step-1 checkpoint whose safetensors shards can be opened and an
    `artifacts/droid-canary/checkpoint-1/evaluation.json` record containing their
    hashes and tensor metadata;
-6. labels the model weights locally without uploading them.
+6. packages the license, notices, and model card with the checkpoint;
+7. publishes the verified checkpoint to the pre-created public Hugging Face
+   model repository and records public download locations in GLaaS.
 
 The setup, fetch, and train commands have an aggregate timeout below two hours,
 keeping the run below the approved $5 cap at the target's observed hourly rate.
