@@ -210,6 +210,7 @@ def test_tier2_workflow_is_a_read_only_protocol_reproduction():
     assert workflow["secrets"] == ["HF_TOKEN"]
     assert setup["trace"] == "off"
     assert "test ! -e /tmp/isaac-groot-hf" in setup["command"]
+    assert "apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg" in setup["command"]
     assert "nvidia/GR00T-N1.7-3B" in setup["command"]
     assert "nvidia/Cosmos-Reason2-2B" in setup["command"]
     assert "write" not in setup["command"].lower()

@@ -11,6 +11,18 @@ setup:
     export PATH="$(python3 -m site --user-base)/bin:${PATH}"
     test ! -e /tmp/isaac-groot-hf
     nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+    if command -v sudo >/dev/null 2>&1; then
+      PRIVILEGE=(sudo -n)
+    elif [ "$(id -u)" -eq 0 ]; then
+      PRIVILEGE=()
+    else
+      echo "setup requires root access or passwordless sudo" >&2
+      exit 1
+    fi
+    if ! command -v ffmpeg >/dev/null 2>&1; then
+      timeout --signal=TERM 180 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update
+      timeout --signal=TERM 420 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg
+    fi
     ffmpeg -version | head -1
     timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
     command -v uv >/dev/null
