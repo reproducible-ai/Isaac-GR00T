@@ -104,7 +104,9 @@ def download_models(token: str) -> dict[str, str]:
 
 
 def download_dataset() -> None:
-    existing = [path for path in DATASET_PATH.rglob("*") if path.name != ".gitkeep"]
+    existing = [
+        path for path in DATASET_PATH.rglob("*") if path.is_file() and path.name != ".gitkeep"
+    ]
     if existing:
         raise RuntimeError(f"Refusing to reuse existing canary dataset: {DATASET_PATH}")
     # The repository tracks this otherwise-empty directory with .gitkeep, but

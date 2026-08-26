@@ -201,8 +201,10 @@ def test_diagnostic_hf_preflight_is_untraced_and_does_not_publish():
 def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
     prepare = load_canary_script("prepare_droid_canary.py")
     dataset_path = tmp_path / "dataset"
-    dataset_path.mkdir()
-    (dataset_path / ".gitkeep").touch()
+    (dataset_path / "meta").mkdir(parents=True)
+    (dataset_path / "meta" / ".gitkeep").touch()
+    (dataset_path / "data" / "chunk-000").mkdir(parents=True)
+    (dataset_path / "data" / "chunk-000" / ".gitkeep").touch()
     calls = []
 
     def fake_run(command, *, check):
