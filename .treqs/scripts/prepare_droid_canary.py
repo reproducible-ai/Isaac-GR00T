@@ -26,6 +26,14 @@ from droid_canary_contract import (
 )
 
 
+DATASET_SCAFFOLD_RELATIVE_PATHS = (
+    Path("meta/.gitkeep"),
+    Path("data/chunk-000/.gitkeep"),
+    Path("videos/chunk-000/observation.images.exterior_1_left/.gitkeep"),
+    Path("videos/chunk-000/observation.images.wrist_left/.gitkeep"),
+)
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -130,6 +138,13 @@ def download_dataset() -> None:
         ],
         check=True,
     )
+    # Restore the committed placeholders after conversion so the next named
+    # Roar step still starts from a clean Git tree. The generated data remains
+    # ignored, while each output parent is known to exist on a fresh checkout.
+    for relative_path in DATASET_SCAFFOLD_RELATIVE_PATHS:
+        scaffold_path = DATASET_PATH / relative_path
+        scaffold_path.parent.mkdir(parents=True, exist_ok=True)
+        scaffold_path.touch()
 
 
 def dataset_manifest() -> dict[str, object]:

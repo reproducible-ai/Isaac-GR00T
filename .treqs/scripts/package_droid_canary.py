@@ -77,6 +77,15 @@ def copy_required_file(source: Path, destination: Path) -> None:
     shutil.copyfile(source, destination)
 
 
+def produce_checkpoint_scaffolds() -> None:
+    """Record tracked path placeholders as package outputs without dirtying Git."""
+    scaffold_paths = sorted(CHECKPOINT_PATH.rglob(".gitkeep"))
+    if not scaffold_paths:
+        raise RuntimeError(f"Missing tracked checkpoint scaffolds: {CHECKPOINT_PATH}")
+    for path in scaffold_paths:
+        path.write_bytes(path.read_bytes())
+
+
 def main() -> None:
     token = os.environ.get("HF_TOKEN")
     if not token:
@@ -127,6 +136,7 @@ def main() -> None:
     (CHECKPOINT_PATH / "publication.json").write_text(
         json.dumps(publication, indent=2, sort_keys=True) + "\n"
     )
+    produce_checkpoint_scaffolds()
     print(f"Packaged checkpoint for hf://{PUBLICATION_REPO_ID}/{PUBLICATION_VERSION}")
 
 

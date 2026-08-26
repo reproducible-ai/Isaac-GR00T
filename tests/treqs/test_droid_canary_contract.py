@@ -210,6 +210,8 @@ def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
     def fake_run(command, *, check):
         assert check is True
         assert not dataset_path.exists()
+        (dataset_path / "meta").mkdir(parents=True)
+        (dataset_path / "meta" / "info.json").write_text("{}\n")
         calls.append(command)
 
     monkeypatch.setattr(prepare, "DATASET_PATH", dataset_path)
@@ -219,14 +221,20 @@ def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
 
     assert len(calls) == 1
     assert calls[0][-1] == str(dataset_path)
+    assert (dataset_path / "meta" / ".gitkeep").is_file()
+    assert (dataset_path / "data" / "chunk-000" / ".gitkeep").is_file()
+    assert (dataset_path / "meta" / "info.json").is_file()
 
 
-def test_training_removes_checkpoint_scaffold_and_uses_tracked_triton_cache(monkeypatch, tmp_path):
+def test_training_preserves_checkpoint_scaffold_and_uses_tracked_triton_cache(
+    monkeypatch, tmp_path
+):
     run = load_canary_script("run_droid_canary.py")
     artifact_root = tmp_path / "artifacts"
     checkpoint = artifact_root / "checkpoint-1"
-    checkpoint.mkdir(parents=True)
+    (checkpoint / "experiment_cfg").mkdir(parents=True)
     (checkpoint / ".gitkeep").touch()
+    (checkpoint / "experiment_cfg" / ".gitkeep").touch()
     manifest = artifact_root / "input-manifest.json"
     manifest.write_text("{}\n")
     dataset = artifact_root / "dataset"
@@ -242,7 +250,8 @@ def test_training_removes_checkpoint_scaffold_and_uses_tracked_triton_cache(monk
 
     def fake_run(command, *, check, env):
         assert check is True
-        assert not checkpoint.exists()
+        assert (checkpoint / ".gitkeep").is_file()
+        assert (checkpoint / "experiment_cfg" / ".gitkeep").is_file()
         assert env["TRITON_CACHE_DIR"] == str((artifact_root / "triton-cache").resolve())
         calls.append(command)
 
@@ -387,6 +396,15 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     package = load_canary_script("package_droid_canary.py")
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
+    scaffold_paths = (
+        checkpoint / ".gitkeep",
+        checkpoint / "experiment_cfg" / ".gitkeep",
+        checkpoint / "upstream" / "gr00t-n1.7" / ".gitkeep",
+        checkpoint / "upstream" / "cosmos-reason2-2b" / ".gitkeep",
+    )
+    for path in scaffold_paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
     result_path = checkpoint / "evaluation.json"
     result_path.write_text('{"status": "passed"}\n')
     assets = tmp_path / "assets"
@@ -423,6 +441,15 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     monkeypatch.setattr(package, "cached_snapshot", fake_snapshot)
     monkeypatch.setattr(package, "source_commit", lambda: "c" * 40)
     monkeypatch.setenv("HF_TOKEN", "write-token")
+    scaffold_writes = []
+    original_write_bytes = Path.write_bytes
+
+    def track_scaffold_write(path, data):
+        if path.name == ".gitkeep":
+            scaffold_writes.append(path)
+        return original_write_bytes(path, data)
+
+    monkeypatch.setattr(Path, "write_bytes", track_scaffold_write)
 
     package.main()
 
@@ -433,6 +460,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     publication = json.loads((checkpoint / "publication.json").read_text())
     assert publication["repository"] == "reproducible-ai/GR00T"
     assert publication["version"] == "droid-canary-0.0.2"
+    assert set(scaffold_writes) == set(scaffold_paths)
 
 
 def test_generated_paths_preserve_a_clean_checkout():
