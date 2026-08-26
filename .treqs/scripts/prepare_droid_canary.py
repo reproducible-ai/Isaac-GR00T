@@ -162,12 +162,23 @@ def main() -> None:
     manifest = {
         "schema_version": 1,
         "inputs": {
-            "base_model": {"repo_id": BASE_MODEL_ID, "revision": BASE_MODEL_REVISION},
+            "base_model": {
+                "repo_id": BASE_MODEL_ID,
+                "revision": BASE_MODEL_REVISION,
+                "url": f"https://huggingface.co/{BASE_MODEL_ID}/tree/{BASE_MODEL_REVISION}",
+            },
             "backbone_model": {
                 "repo_id": BACKBONE_MODEL_ID,
                 "revision": BACKBONE_MODEL_REVISION,
+                "url": (
+                    f"https://huggingface.co/{BACKBONE_MODEL_ID}/tree/{BACKBONE_MODEL_REVISION}"
+                ),
             },
-            "dataset": {"repo_id": DATASET_ID, "revision": DATASET_REVISION},
+            "dataset": {
+                "repo_id": DATASET_ID,
+                "revision": DATASET_REVISION,
+                "url": f"https://huggingface.co/datasets/{DATASET_ID}/tree/{DATASET_REVISION}",
+            },
         },
         "resolved_snapshots": snapshots,
         "runtime": runtime,

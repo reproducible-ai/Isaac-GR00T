@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import shutil
 import subprocess
 
 from droid_canary_contract import (
@@ -11,6 +13,7 @@ from droid_canary_contract import (
     BACKBONE_MODEL_REVISION,
     BASE_MODEL_ID,
     BASE_MODEL_REVISION,
+    CHECKPOINT_PATH,
     DATASET_PATH,
     INPUT_MANIFEST_PATH,
 )
@@ -27,6 +30,15 @@ def cached_snapshot(repo_id: str, revision: str, token: str) -> str:
     )
 
 
+def remove_placeholder_scaffold(path: Path) -> None:
+    """Remove a tracked output scaffold without allowing stale output reuse."""
+    existing = [item for item in path.rglob("*") if item.is_file() and item.name != ".gitkeep"]
+    if existing:
+        raise RuntimeError(f"Refusing to reuse existing training output: {path}")
+    if path.exists():
+        shutil.rmtree(path)
+
+
 def main() -> None:
     token = os.environ.get("HF_TOKEN")
     if not token:
@@ -36,6 +48,14 @@ def main() -> None:
 
     base_model_path = cached_snapshot(BASE_MODEL_ID, BASE_MODEL_REVISION, token)
     cached_snapshot(BACKBONE_MODEL_ID, BACKBONE_MODEL_REVISION, token)
+
+    # A checkout carries .gitkeep files so Roar knows every generated parent
+    # directory is reproducible. Remove the scaffold inside the recorded train
+    # step so none of those placeholders can become an orphaned publication.
+    remove_placeholder_scaffold(CHECKPOINT_PATH)
+
+    triton_cache = ARTIFACT_ROOT / "triton-cache"
+    triton_cache.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
     env.update(
@@ -50,6 +70,7 @@ def main() -> None:
             "EPISODE_SAMPLING_RATE": "1.0",
             "USE_WANDB": "0",
             "CUDA_VISIBLE_DEVICES": "0",
+            "TRITON_CACHE_DIR": str(triton_cache.resolve()),
         }
     )
     subprocess.run(

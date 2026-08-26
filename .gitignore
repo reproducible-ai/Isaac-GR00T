@@ -159,9 +159,43 @@ dump.rdb
 .roar/
 /artifacts/droid-canary/*
 !/artifacts/droid-canary/.gitkeep
+!/artifacts/droid-canary/dataset/
+/artifacts/droid-canary/dataset/*
+!/artifacts/droid-canary/dataset/meta/
+/artifacts/droid-canary/dataset/meta/*
+!/artifacts/droid-canary/dataset/meta/.gitkeep
+!/artifacts/droid-canary/dataset/data/
+/artifacts/droid-canary/dataset/data/*
+!/artifacts/droid-canary/dataset/data/chunk-000/
+/artifacts/droid-canary/dataset/data/chunk-000/*
+!/artifacts/droid-canary/dataset/data/chunk-000/.gitkeep
+!/artifacts/droid-canary/dataset/videos/
+/artifacts/droid-canary/dataset/videos/*
+!/artifacts/droid-canary/dataset/videos/chunk-000/
+/artifacts/droid-canary/dataset/videos/chunk-000/*
+!/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.exterior_1_left/
+/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.exterior_1_left/*
+!/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.exterior_1_left/.gitkeep
+!/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.wrist_left/
+/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.wrist_left/*
+!/artifacts/droid-canary/dataset/videos/chunk-000/observation.images.wrist_left/.gitkeep
 !/artifacts/droid-canary/checkpoint-1/
 /artifacts/droid-canary/checkpoint-1/*
 !/artifacts/droid-canary/checkpoint-1/.gitkeep
+!/artifacts/droid-canary/checkpoint-1/experiment_cfg/
+/artifacts/droid-canary/checkpoint-1/experiment_cfg/*
+!/artifacts/droid-canary/checkpoint-1/experiment_cfg/.gitkeep
+!/artifacts/droid-canary/checkpoint-1/upstream/
+/artifacts/droid-canary/checkpoint-1/upstream/*
+!/artifacts/droid-canary/checkpoint-1/upstream/gr00t-n1.7/
+/artifacts/droid-canary/checkpoint-1/upstream/gr00t-n1.7/*
+!/artifacts/droid-canary/checkpoint-1/upstream/gr00t-n1.7/.gitkeep
+!/artifacts/droid-canary/checkpoint-1/upstream/cosmos-reason2-2b/
+/artifacts/droid-canary/checkpoint-1/upstream/cosmos-reason2-2b/*
+!/artifacts/droid-canary/checkpoint-1/upstream/cosmos-reason2-2b/.gitkeep
+!/artifacts/droid-canary/triton-cache/
+/artifacts/droid-canary/triton-cache/*
+!/artifacts/droid-canary/triton-cache/.gitkeep
 
 # Docker
 # Note: docker/.dockerignore is tracked — it controls the Docker build context

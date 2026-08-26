@@ -21,10 +21,10 @@ a quality, convergence, or deployment-safety claim.
 
 ## Reproducible inputs
 
-- Source: `reproducible-ai/Isaac-GR00T@{{SOURCE_COMMIT}}`
-- Base model: `nvidia/GR00T-N1.7-3B@{{BASE_MODEL_REVISION}}`
-- VLM backbone: `nvidia/Cosmos-Reason2-2B@{{BACKBONE_MODEL_REVISION}}`
-- Dataset: `lerobot/droid_1.0.1@{{DATASET_REVISION}}` (three episodes)
+- Source: [`reproducible-ai/Isaac-GR00T@{{SOURCE_COMMIT}}`](https://github.com/reproducible-ai/Isaac-GR00T/tree/{{SOURCE_COMMIT}})
+- Base model: [`nvidia/GR00T-N1.7-3B@{{BASE_MODEL_REVISION}}`](https://huggingface.co/nvidia/GR00T-N1.7-3B/tree/{{BASE_MODEL_REVISION}})
+- VLM backbone: [`nvidia/Cosmos-Reason2-2B@{{BACKBONE_MODEL_REVISION}}`](https://huggingface.co/nvidia/Cosmos-Reason2-2B/tree/{{BACKBONE_MODEL_REVISION}})
+- Dataset: [`lerobot/droid_1.0.1@{{DATASET_REVISION}}`](https://huggingface.co/datasets/lerobot/droid_1.0.1/tree/{{DATASET_REVISION}}) (three episodes)
 - Training: one optimizer step, global batch size 1
 - Release path: `{{PUBLICATION_VERSION}}`
 

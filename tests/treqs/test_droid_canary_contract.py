@@ -219,6 +219,38 @@ def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
     assert calls[0][-1] == str(dataset_path)
 
 
+def test_training_removes_checkpoint_scaffold_and_uses_tracked_triton_cache(monkeypatch, tmp_path):
+    run = load_canary_script("run_droid_canary.py")
+    artifact_root = tmp_path / "artifacts"
+    checkpoint = artifact_root / "checkpoint-1"
+    checkpoint.mkdir(parents=True)
+    (checkpoint / ".gitkeep").touch()
+    manifest = artifact_root / "input-manifest.json"
+    manifest.write_text("{}\n")
+    dataset = artifact_root / "dataset"
+    dataset.mkdir()
+    calls = []
+
+    monkeypatch.setattr(run, "ARTIFACT_ROOT", artifact_root)
+    monkeypatch.setattr(run, "CHECKPOINT_PATH", checkpoint, raising=False)
+    monkeypatch.setattr(run, "DATASET_PATH", dataset)
+    monkeypatch.setattr(run, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(run, "cached_snapshot", lambda *args: "/tmp/pinned-model")
+    monkeypatch.setenv("HF_TOKEN", "read-token")
+
+    def fake_run(command, *, check, env):
+        assert check is True
+        assert not checkpoint.exists()
+        assert env["TRITON_CACHE_DIR"] == str((artifact_root / "triton-cache").resolve())
+        calls.append(command)
+
+    monkeypatch.setattr(run.subprocess, "run", fake_run)
+
+    run.main()
+
+    assert len(calls) == 1
+
+
 def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
     workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
@@ -339,8 +371,9 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "non-commercial research/evaluation" in label["command"]
     assert publish["trace"] == "off"
     assert publish["glaas_creds"] is True
+    assert "roar register --dry-run --public --yes" in publish["command"]
     assert publish["command"].count("roar put ") == 1
-    assert "hf://reproducible-ai/GR00T/droid-canary-0.0.1" in publish["command"]
+    assert "hf://reproducible-ai/GR00T/droid-canary-0.0.2" in publish["command"]
     assert "--public --yes --no-tag" in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
     assert "/tmp/isaac-groot-hf" not in publish["command"]
@@ -397,7 +430,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
     assert publication["repository"] == "reproducible-ai/GR00T"
-    assert publication["version"] == "droid-canary-0.0.1"
+    assert publication["version"] == "droid-canary-0.0.2"
 
 
 def test_generated_paths_preserve_a_clean_checkout():
@@ -406,8 +439,18 @@ def test_generated_paths_preserve_a_clean_checkout():
     assert contract.DATASET_PATH == contract.ARTIFACT_ROOT / "dataset"
     assert contract.CHECKPOINT_PATH == contract.ARTIFACT_ROOT / "checkpoint-1"
     assert contract.RESULT_PATH == contract.CHECKPOINT_PATH / "evaluation.json"
-    assert not (ROOT / contract.DATASET_PATH).exists()
-    assert (ROOT / contract.CHECKPOINT_PATH / ".gitkeep").is_file()
+    scaffold_dirs = (
+        contract.DATASET_PATH / "meta",
+        contract.DATASET_PATH / "data" / "chunk-000",
+        contract.DATASET_PATH / "videos" / "chunk-000" / "observation.images.exterior_1_left",
+        contract.DATASET_PATH / "videos" / "chunk-000" / "observation.images.wrist_left",
+        contract.CHECKPOINT_PATH,
+        contract.CHECKPOINT_PATH / "experiment_cfg",
+        contract.CHECKPOINT_PATH / "upstream" / "gr00t-n1.7",
+        contract.CHECKPOINT_PATH / "upstream" / "cosmos-reason2-2b",
+        contract.ARTIFACT_ROOT / "triton-cache",
+    )
+    assert all((ROOT / path / ".gitkeep").is_file() for path in scaffold_dirs)
 
 
 def test_hugging_face_sdk_uploads_are_owned_by_roar_not_workload_scripts():

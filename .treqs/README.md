@@ -50,13 +50,13 @@ The paid workload is one clean, named ROAR DAG:
    metadata to every model-weight shard locally;
 6. `publish` uses one broker-scoped operation to upload the checkpoint, including
    its model card and license notices, to
-   `hf://reproducible-ai/GR00T/droid-canary-0.0.1`.
+   `hf://reproducible-ai/GR00T/droid-canary-0.0.2`.
 
 All workflow stages use `trace: off`; the four workload stages invoke
 `roar run -n ...` explicitly so the captured commands and tracer ABI are stable.
 
 ```bash
-roar reproduce <lineage-hash> --lineage --run
+roar reproduce <lineage-hash> --lineage --run --no-puts
 ```
 
 ## Canary contract

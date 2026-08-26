@@ -83,7 +83,7 @@ label:
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
     SOURCE_COMMIT="$(git rev-parse HEAD)"
     while IFS= read -r model_artifact; do
-      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.1 license.id=LicenseRef-NVIDIA-License license.name='NVIDIA License (non-commercial research/evaluation)' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url="https://github.com/reproducible-ai/Isaac-GR00T/blob/${SOURCE_COMMIT}/.treqs/README.md"
+      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.2 license.id=LicenseRef-NVIDIA-License license.name='NVIDIA License (non-commercial research/evaluation)' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url="https://github.com/reproducible-ai/Isaac-GR00T/blob/${SOURCE_COMMIT}/.treqs/README.md"
     done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-1/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
   trace: "off"
 
@@ -96,6 +96,7 @@ publish:
     for document in README.md LICENSE NOTICE NVIDIA_OPEN_MODEL_LICENSE.md; do
       test -s "$CHECKPOINT/$document"
     done
+    roar register --dry-run --public --yes
     roar status --untracked-dirs
-    roar put "$CHECKPOINT" hf://reproducible-ai/GR00T/droid-canary-0.0.1 --public --yes --no-tag -m "GR00T N1.7 one-step DROID reproducibility canary"
+    roar put "$CHECKPOINT" hf://reproducible-ai/GR00T/droid-canary-0.0.2 --public --yes --no-tag -m "GR00T N1.7 one-step DROID reproducibility canary"
   trace: "off"
