@@ -36,6 +36,10 @@ def load_workflow():
     return yaml.safe_load((ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text())
 
 
+def load_tier2_workflow():
+    return yaml.safe_load((ROOT / ".treqs" / "workflows" / "droid-canary-tier2.yaml").read_text())
+
+
 def load_canary_script(filename: str):
     load_contract()
     module_name = filename.removesuffix(".py")
@@ -196,6 +200,27 @@ def test_diagnostic_hf_preflight_is_untraced_and_does_not_publish():
     assert "check_hf_access.py" in workflow["check_hf_access"]["command"]
     assert "roar" not in workflow["check_hf_access"]["command"]
     assert "put" not in workflow["check_hf_access"]["command"]
+
+
+def test_tier2_workflow_is_a_read_only_protocol_reproduction():
+    workflow = load_tier2_workflow()
+    setup = workflow["setup"]
+    reproduce = workflow["reproduce"]
+
+    assert workflow["secrets"] == ["HF_TOKEN"]
+    assert setup["trace"] == "off"
+    assert "test ! -e /tmp/isaac-groot-hf" in setup["command"]
+    assert "nvidia/GR00T-N1.7-3B" in setup["command"]
+    assert "nvidia/Cosmos-Reason2-2B" in setup["command"]
+    assert "write" not in setup["command"].lower()
+    assert reproduce == {
+        "command": "set -euo pipefail\n"
+        'export PATH="$(python3 -m site --user-base)/bin:${PATH}"\n'
+        "roar reproduce "
+        "6c20c595a7d82c3fd2582a411cb4c486c3146087c348b3713b1090e022262194 "
+        "--lineage --run --no-puts -y --step-timeout 21600\n",
+        "trace": "off",
+    }
 
 
 def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):

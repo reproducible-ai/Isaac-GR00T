@@ -1,0 +1,42 @@
+name: Isaac GR00T N1.7 DROID cold reproduction
+
+# This is a certification harness, not a second capture workflow. It runs the
+# published lineage on a fresh AWS host and deliberately suppresses every put.
+secrets:
+  - HF_TOKEN
+
+setup:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    test ! -e /tmp/isaac-groot-hf
+    nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+    ffmpeg -version | head -1
+    timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
+    command -v uv >/dev/null
+    test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
+    timeout --signal=TERM 180 uv python install 3.12.13
+    timeout --signal=TERM 180 uv tool install --python 3.12 --force roar-cli==0.4.5
+    test "$(roar --version)" = "roar, version 0.4.5"
+    timeout --signal=TERM 120 uv run --no-project --python 3.12.13 --with huggingface-hub==0.36.2 python - <<'PY'
+    import os
+
+    from huggingface_hub import hf_hub_download
+
+    token = os.environ["HF_TOKEN"]
+    models = (
+        ("nvidia/GR00T-N1.7-3B", "2fc962b973bccdd5d8ce4f67cc63b264d6886495"),
+        ("nvidia/Cosmos-Reason2-2B", "9ce19a195e423419c349abfc86fd07178b230561"),
+    )
+    for repo_id, revision in models:
+        hf_hub_download(repo_id, ".gitattributes", revision=revision, token=token)
+    print("Hugging Face gated-read preflight passed for both pinned models")
+    PY
+  trace: "off"
+
+reproduce:
+  command: |
+    set -euo pipefail
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    roar reproduce 6c20c595a7d82c3fd2582a411cb4c486c3146087c348b3713b1090e022262194 --lineage --run --no-puts -y --step-timeout 21600
+  trace: "off"
