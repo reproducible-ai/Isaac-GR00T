@@ -217,6 +217,8 @@ def test_tier2_workflow_is_a_read_only_protocol_reproduction():
     assert reproduce == {
         "command": "set -euo pipefail\n"
         'export PATH="$(python3 -m site --user-base)/bin:${PATH}"\n'
+        'CERTIFIER_WORKDIR="$(mktemp -d)"\n'
+        'cd "$CERTIFIER_WORKDIR"\n'
         "roar reproduce "
         "6c20c595a7d82c3fd2582a411cb4c486c3146087c348b3713b1090e022262194 "
         "--lineage --run --no-puts -y --step-timeout 21600\n",
