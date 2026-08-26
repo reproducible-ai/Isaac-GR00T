@@ -221,8 +221,14 @@ def test_dataset_placeholder_is_removed_before_download(monkeypatch, tmp_path):
 
     assert len(calls) == 1
     assert calls[0][-1] == str(dataset_path)
-    assert (dataset_path / "meta" / ".gitkeep").is_file()
-    assert (dataset_path / "data" / "chunk-000" / ".gitkeep").is_file()
+    assert (dataset_path / "meta" / ".gitkeep").read_text() == "\n"
+    assert (dataset_path / "data" / "chunk-000" / ".gitkeep").read_text() == "\n"
+    assert (
+        dataset_path / "videos" / "chunk-000" / "observation.images.exterior_1_left" / ".gitkeep"
+    ).read_text() == "\n"
+    assert (
+        dataset_path / "videos" / "chunk-000" / "observation.images.wrist_left" / ".gitkeep"
+    ).read_text() == "\n"
     assert (dataset_path / "meta" / "info.json").is_file()
 
 

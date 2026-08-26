@@ -144,7 +144,7 @@ def download_dataset() -> None:
     for relative_path in DATASET_SCAFFOLD_RELATIVE_PATHS:
         scaffold_path = DATASET_PATH / relative_path
         scaffold_path.parent.mkdir(parents=True, exist_ok=True)
-        scaffold_path.touch()
+        scaffold_path.write_text("\n")
 
 
 def dataset_manifest() -> dict[str, object]:
