@@ -155,7 +155,10 @@ def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatc
     assert all(request.get_header("Authorization") == "Bearer scoped-token" for request in requests)
     assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
     write_request = next(request for request in requests if request.get_method() == "POST")
-    assert "reproducible-ai/GR00T/preupload/main" in write_request.full_url
+    assert (
+        "reproducible-ai/harness-test-gr00t-droid100-issue-30/preupload/main"
+        in write_request.full_url
+    )
     assert json.loads(write_request.data)["files"][0]["path"] == (".hf-write-permission-check")
     setup = load_workflow()["setup"]["command"]
     assert setup.index("check_hf_access.py") < setup.index("pip install")
@@ -182,7 +185,10 @@ def test_hf_write_preflight_is_non_mutating_and_explains_missing_permission(monk
 
     monkeypatch.setattr(check, "urlopen", forbidden)
 
-    with pytest.raises(RuntimeError, match="write access to reproducible-ai/GR00T"):
+    with pytest.raises(
+        RuntimeError,
+        match="write access to reproducible-ai/harness-test-gr00t-droid100-issue-30",
+    ):
         check.check_write_access("token")
 
     script = (SCRIPTS_DIR / "check_hf_access.py").read_text()
@@ -286,6 +292,8 @@ def test_training_preserves_checkpoint_scaffold_and_uses_tracked_triton_cache(
         assert check is True
         assert (checkpoint / ".gitkeep").is_file()
         assert (checkpoint / "experiment_cfg" / ".gitkeep").is_file()
+        assert env["MAX_STEPS"] == "100"
+        assert env["SAVE_STEPS"] == "100"
         assert env["TRITON_CACHE_DIR"] == str((artifact_root / "triton-cache").resolve())
         calls.append(command)
 
@@ -301,6 +309,12 @@ def test_canary_setup_waits_for_the_fresh_instance_dpkg_lock():
 
     assert "timeout --signal=TERM 420" in workflow
     assert "DPkg::Lock::Timeout=360" in workflow
+
+
+def test_canary_gives_the_100_step_training_stage_one_hour():
+    workflow = load_workflow()
+
+    assert "timeout --signal=TERM 3600" in workflow["train"]["command"]
 
 
 def test_canary_setup_supports_sudo_and_root_only_images():
@@ -330,6 +344,14 @@ def test_canary_setup_validates_the_torchcodec_native_runtime():
     assert "from torchcodec.decoders import VideoDecoder" in setup
 
 
+def test_canary_setup_recovers_the_torchcodec_lfs_object_from_upstream():
+    setup = load_workflow()["setup"]["command"]
+
+    assert "if ! timeout --signal=TERM 180 git lfs pull" in setup
+    assert "https://github.com/NVIDIA/Isaac-GR00T.git HEAD" in setup
+    assert 'git lfs checkout "$TORCHCODEC_WHEEL"' in setup
+
+
 def test_canary_evaluation_opens_the_safetensors_checkpoint(monkeypatch, tmp_path):
     verify = load_canary_script("verify_droid_canary.py")
     checkpoint = tmp_path / "checkpoint-1"
@@ -338,14 +360,26 @@ def test_canary_evaluation_opens_the_safetensors_checkpoint(monkeypatch, tmp_pat
     manifest.write_text("{}\n")
     result_path = checkpoint / "evaluation.json"
     (checkpoint / "trainer_state.json").write_text(
-        '{"global_step": 1, "log_history": [{"loss": 0.125}]}\n'
+        '{"global_step": 100, "log_history": [{"loss": 0.125}]}\n'
     )
     save_file(
-        {
-            "action_head.bias": torch.zeros(2),
-            "action_head.weight": torch.zeros((2, 3)),
-        },
-        checkpoint / "model.safetensors",
+        {"action_head.bias": torch.zeros(2)},
+        checkpoint / "model-00001-of-00002.safetensors",
+    )
+    save_file(
+        {"action_head.weight": torch.zeros((2, 3))},
+        checkpoint / "model-00002-of-00002.safetensors",
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "action_head.bias": "model-00001-of-00002.safetensors",
+                    "action_head.weight": "model-00002-of-00002.safetensors",
+                }
+            }
+        )
+        + "\n"
     )
 
     monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
@@ -356,11 +390,215 @@ def test_canary_evaluation_opens_the_safetensors_checkpoint(monkeypatch, tmp_pat
 
     result = json.loads(result_path.read_text())
     assert result["status"] == "passed"
-    assert result["model_files"][0]["tensor_count"] == 2
+    assert result["global_step"] == 100
+    assert result["final_loss"] == 0.125
+    assert result["safetensors_index"]["shards"] == [
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+    ]
+    assert len(result["model_files"]) == 2
+    assert result["model_files"][0]["tensor_count"] == 1
     assert result["model_files"][0]["first_tensor"] == {
         "name": "action_head.bias",
         "shape": [2],
     }
+
+
+def test_canary_evaluation_requires_a_safetensors_shard_index(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        '{"global_step": 100, "log_history": [{"loss": 0.125}]}\n'
+    )
+    save_file(
+        {"action_head.weight": torch.zeros((2, 3))},
+        checkpoint / "model.safetensors",
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    with pytest.raises(RuntimeError, match="safetensors shard index"):
+        verify.main()
+
+
+def test_canary_evaluation_requires_multiple_safetensors_shards(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        '{"global_step": 100, "log_history": [{"loss": 0.125}]}\n'
+    )
+    save_file(
+        {"action_head.weight": torch.zeros((2, 3))},
+        checkpoint / "model.safetensors",
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {"action_head.weight": "model.safetensors"}}) + "\n"
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    with pytest.raises(RuntimeError, match="at least two safetensors shards"):
+        verify.main()
+
+
+def test_canary_evaluation_rejects_legacy_weights_beside_valid_shards(monkeypatch, tmp_path):
+    torch = pytest.importorskip("torch")
+    safetensors = pytest.importorskip("safetensors.torch")
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 100, "log_history": [{"loss": 1.0}]})
+    )
+    safetensors.save_file(
+        {"weight_a": torch.zeros(1)}, checkpoint / "model-00001-of-00002.safetensors"
+    )
+    safetensors.save_file(
+        {"weight_b": torch.ones(1)}, checkpoint / "model-00002-of-00002.safetensors"
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "weight_a": "model-00001-of-00002.safetensors",
+                    "weight_b": "model-00002-of-00002.safetensors",
+                }
+            }
+        )
+    )
+    (checkpoint / "pytorch_model.bin").write_bytes(b"legacy")
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}")
+    result = tmp_path / "result.json"
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result)
+
+    with pytest.raises(RuntimeError, match="Legacy PyTorch checkpoint weights"):
+        verify.main()
+
+
+def test_canary_evaluation_rejects_nonfinite_training_loss(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 100, "log_history": [{"loss": float("nan")}]}) + "\n"
+    )
+    save_file(
+        {"action_head.bias": torch.zeros(2)},
+        checkpoint / "model-00001-of-00002.safetensors",
+    )
+    save_file(
+        {"action_head.weight": torch.zeros((2, 3))},
+        checkpoint / "model-00002-of-00002.safetensors",
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "action_head.bias": "model-00001-of-00002.safetensors",
+                    "action_head.weight": "model-00002-of-00002.safetensors",
+                }
+            }
+        )
+        + "\n"
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    with pytest.raises(RuntimeError, match="finite loss"):
+        verify.main()
+
+
+def test_canary_evaluation_rejects_missing_index_shard(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        '{"global_step": 100, "log_history": [{"loss": 0.125}]}\n'
+    )
+    save_file(
+        {"action_head.bias": torch.zeros(2)},
+        checkpoint / "model-00001-of-00002.safetensors",
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "action_head.bias": "model-00001-of-00002.safetensors",
+                    "action_head.weight": "model-00002-of-00002.safetensors",
+                }
+            }
+        )
+        + "\n"
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    with pytest.raises(RuntimeError, match="index shard mismatch"):
+        verify.main()
+
+
+def test_canary_evaluation_rejects_tensor_mapped_to_wrong_shard(monkeypatch, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint-100"
+    checkpoint.mkdir()
+    manifest = tmp_path / "input-manifest.json"
+    manifest.write_text("{}\n")
+    result_path = checkpoint / "evaluation.json"
+    (checkpoint / "trainer_state.json").write_text(
+        '{"global_step": 100, "log_history": [{"loss": 0.125}]}\n'
+    )
+    save_file(
+        {"action_head.bias": torch.zeros(2)},
+        checkpoint / "model-00001-of-00002.safetensors",
+    )
+    save_file(
+        {"action_head.weight": torch.zeros((2, 3))},
+        checkpoint / "model-00002-of-00002.safetensors",
+    )
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "action_head.bias": "model-00002-of-00002.safetensors",
+                    "action_head.weight": "model-00001-of-00002.safetensors",
+                }
+            }
+        )
+        + "\n"
+    )
+
+    monkeypatch.setattr(verify, "CHECKPOINT_PATH", checkpoint)
+    monkeypatch.setattr(verify, "INPUT_MANIFEST_PATH", manifest)
+    monkeypatch.setattr(verify, "RESULT_PATH", result_path)
+
+    with pytest.raises(RuntimeError, match="tensor map mismatch"):
+        verify.main()
 
 
 def test_canary_records_pypi_reproducible_gpu_packages():
@@ -414,12 +652,18 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "roar label set artifact" in label["command"]
     assert "LicenseRef-NVIDIA-License" in label["command"]
     assert "non-commercial research/evaluation" in label["command"]
+    assert "checkpoint-100/evaluation.json" in label["command"]
+    assert "checkpoint-1/evaluation.json" not in label["command"]
     assert publish["trace"] == "off"
     assert publish["glaas_creds"] is True
-    assert "roar register --dry-run --public --yes" in publish["command"]
+    assert "roar register" not in publish["command"]
     assert publish["command"].count("roar put ") == 1
-    assert "hf://reproducible-ai/GR00T/droid-canary-0.0.2" in publish["command"]
-    assert "--public --yes --no-tag" in publish["command"]
+    assert (
+        "hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/"
+        "artifacts/gr00t-droid-100step" in publish["command"]
+    )
+    assert "--private --yes --no-tag" in publish["command"]
+    assert "--public" not in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
     assert "/tmp/isaac-groot-hf" not in publish["command"]
     assert front_matter["license"] == "other"
@@ -492,16 +736,29 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
     assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
-    assert publication["repository"] == "reproducible-ai/GR00T"
-    assert publication["version"] == "droid-canary-0.0.2"
+    assert publication["repository"] == ("reproducible-ai/harness-test-gr00t-droid100-issue-30")
+    assert publication["version"] == "artifacts/gr00t-droid-100step"
+    artifact_manifest = json.loads((checkpoint / "artifact-manifest.json").read_text())
+    assert artifact_manifest["schema"] == "reproai.artifact-manifest/v1"
+    assert artifact_manifest["format"] == "gr00t-n1.7-safetensors-checkpoint"
+    assert artifact_manifest["loadVerified"] is True
+    expected_files = sorted(
+        str(path.relative_to(checkpoint))
+        for path in checkpoint.rglob("*")
+        if path.is_file() and path.name != "artifact-manifest.json"
+    )
+    assert [item["path"] for item in artifact_manifest["files"]] == expected_files
+    assert all(len(item["sha256"]) == 64 for item in artifact_manifest["files"])
+    assert all(item["sizeBytes"] >= 0 for item in artifact_manifest["files"])
     assert set(scaffold_writes) == set(scaffold_paths)
 
 
 def test_generated_paths_preserve_a_clean_checkout():
     contract = load_contract()
 
+    assert contract.TRAINING_STEPS == 100
     assert contract.DATASET_PATH == contract.ARTIFACT_ROOT / "dataset"
-    assert contract.CHECKPOINT_PATH == contract.ARTIFACT_ROOT / "checkpoint-1"
+    assert contract.CHECKPOINT_PATH == contract.ARTIFACT_ROOT / "checkpoint-100"
     assert contract.RESULT_PATH == contract.CHECKPOINT_PATH / "evaluation.json"
     scaffold_dirs = (
         contract.DATASET_PATH / "meta",

@@ -1,4 +1,4 @@
-name: Isaac GR00T N1.7 DROID one-step reproduction
+name: Isaac GR00T N1.7 DROID 100-step private canary
 
 # Generated from the reproducible-ai clean-DAG scaffold. Every workload step is
 # an explicit named `roar run`; TReqs executes those stages without nesting a
@@ -30,7 +30,11 @@ setup:
     fi
     ffmpeg -version | head -1
     git lfs install --local
-    timeout --signal=TERM 180 git lfs pull --include="scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl" --exclude=""
+    TORCHCODEC_WHEEL=scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl
+    if ! timeout --signal=TERM 180 git lfs pull --include="$TORCHCODEC_WHEEL" --exclude=""; then
+      timeout --signal=TERM 180 git -c credential.helper= lfs fetch https://github.com/NVIDIA/Isaac-GR00T.git HEAD --include="$TORCHCODEC_WHEEL" --exclude=""
+      git lfs checkout "$TORCHCODEC_WHEEL"
+    fi
     python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
     nvidia-smi
     timeout --signal=TERM 180 uv python install 3.12.13
@@ -60,7 +64,7 @@ train:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n train -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 1800 python .treqs/scripts/run_droid_canary.py
+    roar run -n train -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 3600 python .treqs/scripts/run_droid_canary.py
   trace: "off"
 
 evaluate:
@@ -83,8 +87,8 @@ label:
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
     SOURCE_COMMIT="$(git rev-parse HEAD)"
     while IFS= read -r model_artifact; do
-      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.0.2 license.id=LicenseRef-NVIDIA-License license.name='NVIDIA License (non-commercial research/evaluation)' description='Isaac GR00T N1.7 one-step DROID fine-tuning canary' documentation.url="https://github.com/reproducible-ai/Isaac-GR00T/blob/${SOURCE_COMMIT}/.treqs/README.md"
-    done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-1/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
+      roar label set artifact "$model_artifact" model.name=isaac-groot-droid-canary model.version=0.1.0 license.id=LicenseRef-NVIDIA-License license.name='NVIDIA License (non-commercial research/evaluation)' description='Isaac GR00T N1.7 100-step DROID fine-tuning canary' documentation.url="https://github.com/reproducible-ai/Isaac-GR00T/blob/${SOURCE_COMMIT}/.treqs/README.md"
+    done < <(python -c 'import json; result=json.load(open("artifacts/droid-canary/checkpoint-100/evaluation.json")); print(*(item["path"] for item in result["model_files"]), sep="\n")')
   trace: "off"
 
 publish:
@@ -92,11 +96,10 @@ publish:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    CHECKPOINT=artifacts/droid-canary/checkpoint-1
+    CHECKPOINT=artifacts/droid-canary/checkpoint-100
     for document in README.md LICENSE NOTICE NVIDIA_OPEN_MODEL_LICENSE.md; do
       test -s "$CHECKPOINT/$document"
     done
-    roar register --dry-run --public --yes
     roar status --untracked-dirs
-    roar put "$CHECKPOINT" hf://reproducible-ai/GR00T/droid-canary-0.0.2 --public --yes --no-tag -m "GR00T N1.7 one-step DROID reproducibility canary"
+    roar put "$CHECKPOINT" hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/artifacts/gr00t-droid-100step --private --yes --no-tag -m "GR00T N1.7 100-step private DROID canary"
   trace: "off"

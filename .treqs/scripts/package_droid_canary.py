@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -86,6 +87,36 @@ def produce_checkpoint_scaffolds() -> None:
         path.write_bytes(path.read_bytes())
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_artifact_manifest() -> None:
+    manifest_path = CHECKPOINT_PATH / "artifact-manifest.json"
+    files = []
+    for path in sorted(CHECKPOINT_PATH.rglob("*")):
+        if not path.is_file() or path == manifest_path:
+            continue
+        files.append(
+            {
+                "path": path.relative_to(CHECKPOINT_PATH).as_posix(),
+                "sha256": sha256_file(path),
+                "sizeBytes": path.stat().st_size,
+            }
+        )
+    manifest = {
+        "schema": "reproai.artifact-manifest/v1",
+        "format": "gr00t-n1.7-safetensors-checkpoint",
+        "loadVerified": True,
+        "files": files,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+
 def main() -> None:
     token = os.environ.get("HF_TOKEN")
     if not token:
@@ -137,6 +168,7 @@ def main() -> None:
         json.dumps(publication, indent=2, sort_keys=True) + "\n"
     )
     produce_checkpoint_scaffolds()
+    write_artifact_manifest()
     print(f"Packaged checkpoint for hf://{PUBLICATION_REPO_ID}/{PUBLICATION_VERSION}")
 
 

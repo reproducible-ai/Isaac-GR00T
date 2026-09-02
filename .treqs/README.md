@@ -1,8 +1,8 @@
-# Reproducible DROID canary
+# Reproducible DROID 100-step private canary
 
 This tracer bullet proves that the pinned Isaac GR00T N1.7 source, model inputs,
-and three-episode DROID sample can complete one optimizer step on the existing
-Reproducible AI L40S target.
+and three-episode DROID sample can complete 100 optimizer steps on the
+Reproducible AI 96 GB RTX PRO 6000 Blackwell target.
 
 ## Immutable inputs
 
@@ -13,13 +13,15 @@ Reproducible AI L40S target.
 - Python dependencies: the committed `uv.lock`, installed without replacing the
   checked-out `gr00t` source with a separately built project package
 - Lineage runtime: `roar-cli==0.4.5` with the pinned `preload` tracer
-- Compute target: `5ad26838-4267-402d-b8aa-0bd271041be3`
+- Compute target: `c33842f4-f374-4ca5-845f-7e0c0dd502f7`
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
 `HF_TOKEN` needs read access to both NVIDIA model repositories and write access
-to the pre-created `reproducible-ai/GR00T` model repository. Workload scripts use
-the Hugging Face SDK only to read pinned upstream inputs; publication is handled
-by `roar put`, and no metrics are synchronized to a Hugging Face Space.
+to the pre-created private
+`reproducible-ai/harness-test-gr00t-droid100-issue-30` model repository.
+Workload scripts use the Hugging Face SDK only to read pinned upstream inputs;
+publication is handled by `roar put`, and no metrics are synchronized to a
+Hugging Face Space.
 
 Before installing the multi-gigabyte environment, setup checks that the token can
 read both pinned model revisions and see the pre-created publication repository.
@@ -50,7 +52,7 @@ The paid workload is one clean, named ROAR DAG:
    metadata to every model-weight shard locally;
 6. `publish` uses one broker-scoped operation to upload the checkpoint, including
    its model card and license notices, to
-   `hf://reproducible-ai/GR00T/droid-canary-0.0.2`.
+   `hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/artifacts/gr00t-droid-100step`.
 
 All workflow stages use `trace: off`; the four workload stages invoke
 `roar run -n ...` explicitly so the captured commands and tracer ABI are stable.
@@ -66,14 +68,16 @@ The canary succeeds only if it:
 1. sees one CUDA GPU with at least 40 GiB VRAM and FFmpeg major version 4-7;
 2. downloads the exact base-model, gated-backbone, and dataset revisions;
 3. converts exactly three DROID episodes;
-4. performs exactly one optimizer step without tuning the LLM or visual encoder;
-5. writes a step-1 checkpoint whose safetensors shards can be opened and an
-   `artifacts/droid-canary/checkpoint-1/evaluation.json` record containing their
-   hashes and tensor metadata;
-6. packages the license, notices, and model card with the checkpoint;
-7. publishes the verified checkpoint to the pre-created public Hugging Face
-   model repository and records public download locations in GLaaS.
+4. performs exactly 100 optimizer steps without tuning the LLM or visual encoder
+   and records a finite loss;
+5. writes a step-100 checkpoint whose safetensors index names every shard and an
+   `artifacts/droid-canary/checkpoint-100/evaluation.json` record containing
+   their hashes and tensor metadata;
+6. packages the license, notices, model card, and complete file inventory with
+   the checkpoint;
+7. publishes the verified checkpoint to the pre-created private Hugging Face
+   repository while keeping GLaaS lineage private.
 
-The setup, fetch, and train commands have an aggregate timeout below two hours,
-keeping the run below the approved $5 cap at the target's observed hourly rate.
+The run has a $15 NTE ceiling, including provisioning and one failed-run
+allowance. The one-hour training timeout bounds the paid training stage.
 This is a training-path canary, not a quality or convergence claim.

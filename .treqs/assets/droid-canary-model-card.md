@@ -14,7 +14,7 @@ tags:
 
 # GR00T N1.7 DROID reproducibility canary
 
-This is a one-optimizer-step fine-tuning canary for NVIDIA Isaac GR00T N1.7.
+This is a 100-optimizer-step fine-tuning canary for NVIDIA Isaac GR00T N1.7.
 It demonstrates that the pinned source, models, three-episode DROID sample, and
 Reproducible AI workflow can produce and verify a readable checkpoint. It is not
 a quality, convergence, or deployment-safety claim.
@@ -25,7 +25,7 @@ a quality, convergence, or deployment-safety claim.
 - Base model: [`nvidia/GR00T-N1.7-3B@{{BASE_MODEL_REVISION}}`](https://huggingface.co/nvidia/GR00T-N1.7-3B/tree/{{BASE_MODEL_REVISION}})
 - VLM backbone: [`nvidia/Cosmos-Reason2-2B@{{BACKBONE_MODEL_REVISION}}`](https://huggingface.co/nvidia/Cosmos-Reason2-2B/tree/{{BACKBONE_MODEL_REVISION}})
 - Dataset: [`lerobot/droid_1.0.1@{{DATASET_REVISION}}`](https://huggingface.co/datasets/lerobot/droid_1.0.1/tree/{{DATASET_REVISION}}) (three episodes)
-- Training: one optimizer step, global batch size 1
+- Training: 100 optimizer steps, global batch size 1
 - Release path: `{{PUBLICATION_VERSION}}`
 
 The checkpoint's `evaluation.json` records the step count, training log, byte

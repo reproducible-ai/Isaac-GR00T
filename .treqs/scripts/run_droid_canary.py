@@ -1,4 +1,4 @@
-"""Run one GR00T optimizer step against the pinned DROID sample."""
+"""Run 100 GR00T optimizer steps against the pinned DROID sample."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from droid_canary_contract import (
     CHECKPOINT_PATH,
     DATASET_PATH,
     INPUT_MANIFEST_PATH,
+    TRAINING_STEPS,
 )
 
 
@@ -58,8 +59,8 @@ def main() -> None:
     env.update(
         {
             "NUM_GPUS": "1",
-            "MAX_STEPS": "1",
-            "SAVE_STEPS": "1",
+            "MAX_STEPS": str(TRAINING_STEPS),
+            "SAVE_STEPS": str(TRAINING_STEPS),
             "GLOBAL_BATCH_SIZE": "1",
             "DATALOADER_NUM_WORKERS": "0",
             "SHARD_SIZE": "8",
