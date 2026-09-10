@@ -155,10 +155,7 @@ def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatc
     assert all(request.get_header("Authorization") == "Bearer scoped-token" for request in requests)
     assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
     write_request = next(request for request in requests if request.get_method() == "POST")
-    assert (
-        "reproducible-ai/harness-test-gr00t-droid100-issue-30/preupload/main"
-        in write_request.full_url
-    )
+    assert "reproducible-ai/harness-test-pending/preupload/main" in write_request.full_url
     assert json.loads(write_request.data)["files"][0]["path"] == (".hf-write-permission-check")
     setup = load_workflow()["setup"]["command"]
     assert setup.index("check_hf_access.py") < setup.index("pip install")
@@ -187,7 +184,7 @@ def test_hf_write_preflight_is_non_mutating_and_explains_missing_permission(monk
 
     with pytest.raises(
         RuntimeError,
-        match="write access to reproducible-ai/harness-test-gr00t-droid100-issue-30",
+        match="write access to reproducible-ai/harness-test-pending",
     ):
         check.check_write_access("token")
 
@@ -629,13 +626,13 @@ def test_canary_setup_pins_an_isolated_roar_runtime():
     assert "roar init" in setup
 
 
-def test_workload_stages_are_named_roar_runs_without_nested_tracing():
+def test_workload_stages_use_treqs_tracing_without_workload_wrappers():
     workflow = load_workflow()
 
     for stage_name in ("fetch_droid", "train", "evaluate", "package"):
         stage = workflow[stage_name]
-        assert stage["trace"] == "off"
-        assert f"roar run -n {stage_name} --" in stage["command"]
+        assert stage["trace"] == "run"
+        assert "roar run" not in stage["command"]
         assert "PYTHONPATH=" not in stage["command"]
         assert "--wandb-to-trackio" not in stage["command"]
         assert "TRACKIO_SPACE_ID" not in stage["command"]
@@ -659,8 +656,8 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "roar register" not in publish["command"]
     assert publish["command"].count("roar put ") == 1
     assert (
-        "hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/"
-        "artifacts/gr00t-droid-100step" in publish["command"]
+        "hf://reproducible-ai/harness-test-pending/"
+        "artifacts/droid-canary/checkpoint-100" in publish["command"]
     )
     assert "--private --yes --no-tag" in publish["command"]
     assert "--public" not in publish["command"]
@@ -684,7 +681,8 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
     result_path = checkpoint / "evaluation.json"
-    result_path.write_text('{"status": "passed"}\n')
+    result_path.write_text('{"status": "passed", "global_step": 100, "final_loss": 0.095}\n')
+    (checkpoint / "model.safetensors.index.json").write_text('{"weight_map": {}}\n')
     assets = tmp_path / "assets"
     assets.mkdir()
     (assets / "droid-canary-model-card.md").write_text(
@@ -736,8 +734,8 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
     assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
-    assert publication["repository"] == ("reproducible-ai/harness-test-gr00t-droid100-issue-30")
-    assert publication["version"] == "artifacts/gr00t-droid-100step"
+    assert publication["repository"] == ("reproducible-ai/harness-test-pending")
+    assert publication["version"] == "artifacts/droid-canary/checkpoint-100"
     artifact_manifest = json.loads((checkpoint / "artifact-manifest.json").read_text())
     assert artifact_manifest["schema"] == "reproai.artifact-manifest/v1"
     assert artifact_manifest["format"] == "gr00t-n1.7-safetensors-checkpoint"
@@ -745,7 +743,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     expected_files = sorted(
         str(path.relative_to(checkpoint))
         for path in checkpoint.rglob("*")
-        if path.is_file() and path.name != "artifact-manifest.json"
+        if path.is_file() and path.name not in {"artifact-manifest.json", "result.json"}
     )
     assert [item["path"] for item in artifact_manifest["files"]] == expected_files
     assert all(len(item["sha256"]) == 64 for item in artifact_manifest["files"])
@@ -786,3 +784,50 @@ def test_canary_explicitly_requests_the_gated_model_secret():
     workflow = (ROOT / ".treqs" / "workflows" / "droid-canary.yaml").read_text()
 
     assert "secrets:\n  - HF_TOKEN\n" in workflow
+
+
+def test_publication_binding_follows_the_actual_workflow(tmp_path):
+    contract = load_contract()
+    workflow = tmp_path / "bound.yaml"
+    workflow.write_text(
+        (ROOT / ".treqs/workflows/droid-canary.yaml")
+        .read_text()
+        .replace("reproducible-ai/harness-test-pending", "reproducible-ai/harness-test-attempt-abc")
+    )
+    assert contract.publication_repository(workflow) == "reproducible-ai/harness-test-attempt-abc"
+
+
+def test_package_receipts_bind_steps_metric_and_checkpoint(monkeypatch, tmp_path, capsys):
+    package = load_canary_script("package_droid_canary.py")
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    (checkpoint / "model.safetensors.index.json").write_text('{"weight_map": {}}')
+    monkeypatch.setattr(package, "CHECKPOINT_PATH", checkpoint)
+    evaluation = {"status": "passed", "global_step": 100, "final_loss": 0.095}
+    package.write_training_receipts(evaluation)
+    lines = capsys.readouterr().out.splitlines()
+    artifact = json.loads(
+        next(
+            line.removeprefix("E2E_ARTIFACT=") for line in lines if line.startswith("E2E_ARTIFACT=")
+        )
+    )
+    result = json.loads(
+        next(line.removeprefix("E2E_RESULT=") for line in lines if line.startswith("E2E_RESULT="))
+    )
+    assert result == json.loads((checkpoint / "result.json").read_text())
+    assert artifact["schema"] == "reproai.artifact/v1"
+    assert result["optimizerSteps"] == 100
+    assert result["finiteLoss"] == 1
+    assert result["finalLoss"] == 0.095
+    assert (
+        result["checkpoint"] == "artifacts/droid-canary/checkpoint-100/model.safetensors.index.json"
+    )
+    assert artifact["sha256"] == result["artifactSha256"]
+    assert artifact["sizeBytes"] == result["artifactSizeBytes"]
+    for invalid in (
+        {**evaluation, "global_step": 99},
+        {**evaluation, "final_loss": float("nan")},
+        {**evaluation, "status": "failed"},
+    ):
+        with pytest.raises(RuntimeError):
+            package.write_training_receipts(invalid)

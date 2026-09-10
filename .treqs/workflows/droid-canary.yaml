@@ -1,8 +1,7 @@
 name: Isaac GR00T N1.7 DROID 100-step private canary
 
-# Generated from the reproducible-ai clean-DAG scaffold. Every workload step is
-# an explicit named `roar run`; TReqs executes those stages without nesting a
-# second tracer. Generated data and model files live under tracked directories.
+# TReqs traces ordinary workload commands. Publication binds to a private
+# attempt repository before execution; generated paths have tracked scaffolds.
 
 secrets:
   - HF_TOKEN
@@ -57,29 +56,29 @@ fetch_droid:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n fetch_droid -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
-  trace: "off"
+    env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_canary.py
+  trace: "run"
 
 train:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n train -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 3600 python .treqs/scripts/run_droid_canary.py
-  trace: "off"
+    env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 3600 python .treqs/scripts/run_droid_canary.py
+  trace: "run"
 
 evaluate:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n evaluate -- env PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
-  trace: "off"
+    env PYTHONUNBUFFERED=1 timeout --signal=TERM 300 python .treqs/scripts/verify_droid_canary.py
+  trace: "run"
 
 package:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    roar run -n package -- env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 300 python .treqs/scripts/package_droid_canary.py
-  trace: "off"
+    env PYTHONUNBUFFERED=1 HF_HOME=/tmp/isaac-groot-hf timeout --signal=TERM 300 python .treqs/scripts/package_droid_canary.py
+  trace: "run"
 
 label:
   command: |
@@ -101,5 +100,5 @@ publish:
       test -s "$CHECKPOINT/$document"
     done
     roar status --untracked-dirs
-    roar put "$CHECKPOINT" hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/artifacts/gr00t-droid-100step --private --yes --no-tag -m "GR00T N1.7 100-step private DROID canary"
+    roar put artifacts/droid-canary/checkpoint-100 hf://reproducible-ai/harness-test-pending/artifacts/droid-canary/checkpoint-100 --private --yes --no-tag -m "GR00T N1.7 100-step private DROID canary"
   trace: "off"

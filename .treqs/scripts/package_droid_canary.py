@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -17,9 +18,10 @@ from droid_canary_contract import (
     CHECKPOINT_PATH,
     DATASET_ID,
     DATASET_REVISION,
-    PUBLICATION_REPO_ID,
     PUBLICATION_VERSION,
     RESULT_PATH,
+    TRAINING_STEPS,
+    publication_repository,
 )
 
 
@@ -95,11 +97,11 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def write_artifact_manifest() -> None:
+def write_artifact_manifest() -> dict:
     manifest_path = CHECKPOINT_PATH / "artifact-manifest.json"
     files = []
     for path in sorted(CHECKPOINT_PATH.rglob("*")):
-        if not path.is_file() or path == manifest_path:
+        if not path.is_file() or path.name in {"artifact-manifest.json", "result.json"}:
             continue
         files.append(
             {
@@ -115,6 +117,46 @@ def write_artifact_manifest() -> None:
         "files": files,
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    return manifest
+
+
+def write_training_receipts(evaluation: dict) -> None:
+    """Bind the validated training result to the immutable checkpoint inventory."""
+    loss = evaluation.get("final_loss")
+    if (
+        evaluation.get("status") != "passed"
+        or evaluation.get("global_step") != TRAINING_STEPS
+        or isinstance(loss, bool)
+        or not isinstance(loss, (int, float))
+        or not math.isfinite(loss)
+    ):
+        raise RuntimeError("Packaging requires exactly 100 steps and a finite loss")
+    index = CHECKPOINT_PATH / "model.safetensors.index.json"
+    manifest = write_artifact_manifest()
+    artifact = {
+        **manifest,
+        "schema": "reproai.artifact/v1",
+        "path": f"{PUBLICATION_VERSION}/{index.name}",
+        "sha256": sha256_file(index),
+        "sizeBytes": index.stat().st_size,
+        "files": [
+            {**entry, "path": f"{PUBLICATION_VERSION}/{entry['path']}"}
+            for entry in manifest["files"]
+        ],
+    }
+    result = {
+        "schema": "reproai.result/v1",
+        "checkpoint": artifact["path"],
+        "artifactSha256": artifact["sha256"],
+        "artifactSizeBytes": artifact["sizeBytes"],
+        "loadVerified": True,
+        "optimizerSteps": TRAINING_STEPS,
+        "finiteLoss": 1,
+        "finalLoss": loss,
+    }
+    (CHECKPOINT_PATH / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    print("E2E_ARTIFACT=" + json.dumps(artifact, sort_keys=True, allow_nan=False))
+    print("E2E_RESULT=" + json.dumps(result, sort_keys=True, allow_nan=False))
 
 
 def main() -> None:
@@ -154,7 +196,7 @@ def main() -> None:
     )
     publication = {
         "schema_version": 1,
-        "repository": PUBLICATION_REPO_ID,
+        "repository": publication_repository(),
         "version": PUBLICATION_VERSION,
         "source_commit": commit,
         "base_model": {"repo_id": BASE_MODEL_ID, "revision": BASE_MODEL_REVISION},
@@ -168,8 +210,8 @@ def main() -> None:
         json.dumps(publication, indent=2, sort_keys=True) + "\n"
     )
     produce_checkpoint_scaffolds()
-    write_artifact_manifest()
-    print(f"Packaged checkpoint for hf://{PUBLICATION_REPO_ID}/{PUBLICATION_VERSION}")
+    write_training_receipts(evaluation)
+    print(f"Packaged checkpoint for hf://{publication_repository()}/{PUBLICATION_VERSION}")
 
 
 if __name__ == "__main__":

@@ -13,19 +13,18 @@ from droid_canary_contract import (
     BACKBONE_MODEL_REVISION,
     BASE_MODEL_ID,
     BASE_MODEL_REVISION,
-    PUBLICATION_REPO_ID,
+    publication_repository,
 )
 
 
 READ_CHECKS = (
     (
         "GR00T base model",
-        f"https://huggingface.co/{BASE_MODEL_ID}/resolve/{BASE_MODEL_REVISION}/.gitattributes",
+        f"https://huggingface.co/{BASE_MODEL_ID}/resolve/{BASE_MODEL_REVISION}/config.json",
     ),
     (
         "gated Cosmos backbone",
-        f"https://huggingface.co/{BACKBONE_MODEL_ID}/resolve/"
-        f"{BACKBONE_MODEL_REVISION}/.gitattributes",
+        f"https://huggingface.co/{BACKBONE_MODEL_ID}/resolve/{BACKBONE_MODEL_REVISION}/config.json",
     ),
 )
 
@@ -57,6 +56,7 @@ def check_access(label: str, url: str, token: str) -> None:
 
 def check_write_access(token: str) -> None:
     """Ask HF how it would store a tiny file without creating a commit."""
+    repository = publication_repository()
     sample = b"permission-check"
     payload = json.dumps(
         {
@@ -70,7 +70,7 @@ def check_write_access(token: str) -> None:
         }
     ).encode()
     request = Request(
-        f"https://huggingface.co/api/models/{PUBLICATION_REPO_ID}/preupload/main",
+        f"https://huggingface.co/api/models/{repository}/preupload/main",
         data=payload,
         headers={
             "Authorization": f"Bearer {token}",
@@ -86,7 +86,7 @@ def check_write_access(token: str) -> None:
         raise RuntimeError(
             "Hugging Face preflight failed for publication repository write access "
             f"(HTTP {error.code}). Grant HF_TOKEN write access to "
-            f"{PUBLICATION_REPO_ID}."
+            f"{repository}."
         ) from error
     except (URLError, json.JSONDecodeError) as error:
         raise RuntimeError(f"Hugging Face publication write preflight failed: {error}") from error

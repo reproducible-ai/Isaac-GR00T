@@ -17,8 +17,8 @@ Reproducible AI 96 GB RTX PRO 6000 Blackwell target.
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
 `HF_TOKEN` needs read access to both NVIDIA model repositories and write access
-to the pre-created private
-`reproducible-ai/harness-test-gr00t-droid100-issue-30` model repository.
+to the private attempt repository bound into the workflow by the harness.
+The unbound `harness-test-pending` destination is a placeholder; do not launch it directly.
 Workload scripts use the Hugging Face SDK only to read pinned upstream inputs;
 publication is handled by `roar put`, and no metrics are synchronized to a
 Hugging Face Space.
@@ -52,10 +52,10 @@ The paid workload is one clean, named ROAR DAG:
    metadata to every model-weight shard locally;
 6. `publish` uses one broker-scoped operation to upload the checkpoint, including
    its model card and license notices, to
-   `hf://reproducible-ai/harness-test-gr00t-droid100-issue-30/artifacts/gr00t-droid-100step`.
+   the bound repository under `artifacts/droid-canary/checkpoint-100`..
 
-All workflow stages use `trace: off`; the four workload stages invoke
-`roar run -n ...` explicitly so the captured commands and tracer ABI are stable.
+The four workload stages use TReqs `trace: run`; setup, labeling and publication
+use `trace: off`. Workload commands contain no nested tracer wrappers.
 
 ```bash
 roar reproduce <lineage-hash> --lineage --run --no-puts
@@ -81,3 +81,17 @@ The canary succeeds only if it:
 The run has a $15 NTE ceiling, including provisioning and one failed-run
 allowance. The one-hour training timeout bounds the paid training stage.
 This is a training-path canary, not a quality or convergence claim.
+
+## Harness evidence contract
+
+Workload stages use TReqs `trace: run` around ordinary commands. Setup, labeling,
+and publication remain untraced orchestration. Packaging emits exactly one
+`E2E_ARTIFACT` and one `E2E_RESULT` receipt and writes `result.json` beside the
+manifest. The declared artifact is `model.safetensors.index.json`; the manifest
+includes all checkpoint shards and supporting files. Success requires exactly
+100 optimizer steps, finite loss, immutable private HF read-back, canonical
+lineage verification, and consistent terminal TReqs authorities.
+
+The access checker and publication metadata read the actual workflow destination
+so per-attempt binding also changes the repository checked before downloads.
+This recipe never uploads to the public notes repository.
