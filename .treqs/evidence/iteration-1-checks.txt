@@ -1,0 +1,17 @@
+test_candidate_python_syntax (__main__.CanaryOfflineTests.test_candidate_python_syntax) ... ok
+test_shell_syntax_and_publication_binding (__main__.CanaryOfflineTests.test_shell_syntax_and_publication_binding) ... ok
+test_training_schedule_without_launching (__main__.CanaryOfflineTests.test_training_schedule_without_launching) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.043s
+
+OK
+
+git diff --check: passed.
+python3 -m pytest -q tests/treqs/test_droid_canary_contract.py:
+  Not run: /usr/local/bin/python3: No module named pytest
+pre-commit run --all-files:
+  Not run: zsh: command not found: pre-commit
+Dependency discovery: pytest, yaml, torch, and ruff are unavailable; no .venv exists.
+No dependencies installed, credentials used, remote APIs called, or training launched.
+These are local implementation checks, not an independent artifact audit.

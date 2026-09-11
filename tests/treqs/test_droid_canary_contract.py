@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from io import BytesIO
 import json
+import re
+import shlex
 from pathlib import Path
 import sys
 import tomllib
@@ -155,7 +157,7 @@ def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatc
     assert all(request.get_header("Authorization") == "Bearer scoped-token" for request in requests)
     assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
     write_request = next(request for request in requests if request.get_method() == "POST")
-    assert "reproducible-ai/harness-test-pending/preupload/main" in write_request.full_url
+    assert f"{load_contract().publication_repository()}/preupload/main" in write_request.full_url
     assert json.loads(write_request.data)["files"][0]["path"] == (".hf-write-permission-check")
     setup = load_workflow()["setup"]["command"]
     assert setup.index("check_hf_access.py") < setup.index("pip install")
@@ -184,7 +186,7 @@ def test_hf_write_preflight_is_non_mutating_and_explains_missing_permission(monk
 
     with pytest.raises(
         RuntimeError,
-        match="write access to reproducible-ai/harness-test-pending",
+        match=re.escape(f"write access to {load_contract().publication_repository()}"),
     ):
         check.check_write_access("token")
 
@@ -655,10 +657,18 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert publish["glaas_creds"] is True
     assert "roar register" not in publish["command"]
     assert publish["command"].count("roar put ") == 1
-    assert (
-        "hf://reproducible-ai/harness-test-pending/"
-        "artifacts/droid-canary/checkpoint-100" in publish["command"]
+    put_line = next(
+        line.strip() for line in publish["command"].splitlines()
+        if line.strip().startswith("roar put ")
     )
+    args = shlex.split(put_line)
+    assert args[2] == "artifacts/droid-canary/checkpoint-100"
+    assert args[-1] == (
+        f"hf://{load_contract().publication_repository()}/artifacts/droid-canary/checkpoint-100"
+    )
+    assert args.count("-m") == 1
+    assert args[args.index("-m") + 1].strip()
+    assert "--anonymous" not in args
     assert "--private --yes --no-tag" in publish["command"]
     assert "--public" not in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
@@ -734,7 +744,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
     assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
-    assert publication["repository"] == ("reproducible-ai/harness-test-pending")
+    assert publication["repository"] == load_contract().publication_repository()
     assert publication["version"] == "artifacts/droid-canary/checkpoint-100"
     artifact_manifest = json.loads((checkpoint / "artifact-manifest.json").read_text())
     assert artifact_manifest["schema"] == "reproai.artifact-manifest/v1"
@@ -792,7 +802,7 @@ def test_publication_binding_follows_the_actual_workflow(tmp_path):
     workflow.write_text(
         (ROOT / ".treqs/workflows/droid-canary.yaml")
         .read_text()
-        .replace("reproducible-ai/harness-test-pending", "reproducible-ai/harness-test-attempt-abc")
+        .replace(contract.publication_repository(), "reproducible-ai/harness-test-attempt-abc")
     )
     assert contract.publication_repository(workflow) == "reproducible-ai/harness-test-attempt-abc"
 

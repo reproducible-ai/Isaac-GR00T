@@ -1,12 +1,12 @@
 # Reproducible DROID 100-step private canary
 
-This tracer bullet proves that the pinned Isaac GR00T N1.7 source, model inputs,
+This workflow is designed to test whether the pinned Isaac GR00T N1.7 source, model inputs,
 and three-episode DROID sample can complete 100 optimizer steps on the
 Reproducible AI 96 GB RTX PRO 6000 Blackwell target.
 
 ## Immutable inputs
 
-- Fork base commit: `376ba890cff8c9de64d71d982772a9c36185fdd7`
+- Fork base commit: `9124d64bc9b19f118285939e8ffd29ce5f094733`
 - Base model: `nvidia/GR00T-N1.7-3B@2fc962b973bccdd5d8ce4f67cc63b264d6886495`
 - VLM backbone: `nvidia/Cosmos-Reason2-2B@9ce19a195e423419c349abfc86fd07178b230561`
 - Dataset: `lerobot/droid_1.0.1@0eabc778f959c54b8c5aa3626cc1128d2d2e54d4`
@@ -52,7 +52,7 @@ The paid workload is one clean, named ROAR DAG:
    metadata to every model-weight shard locally;
 6. `publish` uses one broker-scoped operation to upload the checkpoint, including
    its model card and license notices, to
-   the bound repository under `artifacts/droid-canary/checkpoint-100`..
+   the bound repository under `artifacts/droid-canary/checkpoint-100`.
 
 The four workload stages use TReqs `trace: run`; setup, labeling and publication
 use `trace: off`. Workload commands contain no nested tracer wrappers.
@@ -78,8 +78,10 @@ The canary succeeds only if it:
 7. publishes the verified checkpoint to the pre-created private Hugging Face
    repository while keeping GLaaS lineage private.
 
-The run has a $15 NTE ceiling, including provisioning and one failed-run
-allowance. The one-hour training timeout bounds the paid training stage.
+The attempt has a $5 NTE ceiling, including provisioning. The supervisor must
+enforce that ceiling across the entire run; stage timeouts alone do not bound
+cost. No automatic retry or larger schedule is authorized. The one-hour
+training timeout is an additional upper bound, subject to the $5 ceiling.
 This is a training-path canary, not a quality or convergence claim.
 
 ## Harness evidence contract
