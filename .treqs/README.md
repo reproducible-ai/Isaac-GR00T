@@ -1,12 +1,12 @@
 # Reproducible DROID 100-step private canary
 
-This tracer bullet proves that the pinned Isaac GR00T N1.7 source, model inputs,
+This canary is intended to check whether the pinned Isaac GR00T N1.7 source, model inputs,
 and three-episode DROID sample can complete 100 optimizer steps on the
 Reproducible AI 96 GB RTX PRO 6000 Blackwell target.
 
 ## Immutable inputs
 
-- Fork base commit: `376ba890cff8c9de64d71d982772a9c36185fdd7`
+- Fork base commit: `9124d64bc9b19f118285939e8ffd29ce5f094733`
 - Base model: `nvidia/GR00T-N1.7-3B@2fc962b973bccdd5d8ce4f67cc63b264d6886495`
 - VLM backbone: `nvidia/Cosmos-Reason2-2B@9ce19a195e423419c349abfc86fd07178b230561`
 - Dataset: `lerobot/droid_1.0.1@0eabc778f959c54b8c5aa3626cc1128d2d2e54d4`
@@ -50,9 +50,9 @@ The paid workload is one clean, named ROAR DAG:
    required Cosmos attribution, and writes a reproducibility model card;
 5. `label` attaches model, version, license, description, and documentation
    metadata to every model-weight shard locally;
-6. `publish` uses one broker-scoped operation to upload the checkpoint, including
-   its model card and license notices, to
-   the bound repository under `artifacts/droid-canary/checkpoint-100`..
+6. `publish` uploads the complete checkpoint directory in one broker-scoped
+   operation, including all weight shards, manifest entries, receipts, and notices, to
+   the bound repository under `artifacts/droid-canary/checkpoint-100`.
 
 The four workload stages use TReqs `trace: run`; setup, labeling and publication
 use `trace: off`. Workload commands contain no nested tracer wrappers.
@@ -78,8 +78,8 @@ The canary succeeds only if it:
 7. publishes the verified checkpoint to the pre-created private Hugging Face
    repository while keeping GLaaS lineage private.
 
-The run has a $15 NTE ceiling, including provisioning and one failed-run
-allowance. The one-hour training timeout bounds the paid training stage.
+The supervisor must enforce the task’s $14.16 NTE ceiling across provisioning
+and all stages; stage timeouts alone do not enforce a dollar budget. The one-hour training timeout bounds the paid training stage.
 This is a training-path canary, not a quality or convergence claim.
 
 ## Harness evidence contract
@@ -95,3 +95,11 @@ lineage verification, and consistent terminal TReqs authorities.
 The access checker and publication metadata read the actual workflow destination
 so per-attempt binding also changes the repository checked before downloads.
 This recipe never uploads to the public notes repository.
+
+Local preparation does not establish remote success. The supervisor owns the
+bounded run, artifact retrieval, and required independent audit.
+
+Run `python3 .treqs/scripts/check_candidate_local.py` for dependency-free local
+preparation checks. Setup also runs these checks, then the existing pytest
+contract suite after dependency installation. These checks do not train or
+audit a model.

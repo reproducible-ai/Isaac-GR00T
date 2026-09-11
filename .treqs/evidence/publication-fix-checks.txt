@@ -1,0 +1,9 @@
+test_publication_contract_survives_binding (__main__.CandidateChecks.test_publication_contract_survives_binding) ... ok
+test_python_syntax (__main__.CandidateChecks.test_python_syntax) ... ok
+test_training_schedule_without_running_training (__main__.CandidateChecks.test_training_schedule_without_running_training) ... ok
+test_workflow_and_shell_syntax (__main__.CandidateChecks.test_workflow_and_shell_syntax) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.022s
+
+OK
