@@ -69,8 +69,8 @@ class OfflineContract(unittest.TestCase):
             self.assertIn(f"hf://{repository}/artifacts/droid-canary/checkpoint-100", args)
             self.assertEqual(args.count("-m"), 1)
             self.assertTrue(args[args.index("-m") + 1].strip())
-            self.assertTrue({"--private", "--yes", "--no-tag"} <= set(args))
-            self.assertFalse({"--public", "--anonymous"} & set(args))
+            self.assertTrue({"--public", "--yes", "--no-tag"} <= set(args))
+            self.assertFalse({"--private", "--anonymous"} & set(args))
             self.assertIn('  trace: "off"', stages["publish"])
             self.assertIn("  glaas_creds: true", stages["publish"])
 

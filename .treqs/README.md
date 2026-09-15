@@ -1,4 +1,4 @@
-# Reproducible DROID 100-step private canary
+# Reproducible DROID 100-step public canary
 
 This candidate is designed to check whether the pinned Isaac GR00T N1.7 source, model inputs,
 and three-episode DROID sample can complete 100 optimizer steps on the
@@ -17,8 +17,7 @@ Reproducible AI 96 GB RTX PRO 6000 Blackwell target.
 - Required target secret: `HF_TOKEN`, explicitly declared by name in the workflow
 
 `HF_TOKEN` needs read access to both NVIDIA model repositories and write access
-to the private attempt repository bound into the workflow by the harness.
-The unbound `harness-test-pending` destination is a placeholder; do not launch it directly.
+to `reproducible-ai/gr00t-n1-7`, the public destination pinned in this workflow.
 Workload scripts use the Hugging Face SDK only to read pinned upstream inputs;
 publication is handled by `roar put`, and no metrics are synchronized to a
 Hugging Face Space.
@@ -75,8 +74,8 @@ The canary succeeds only if it:
    their hashes and tensor metadata;
 6. packages the license, notices, model card, and complete file inventory with
    the checkpoint;
-7. publishes the verified checkpoint to the pre-created private Hugging Face
-   repository while keeping GLaaS lineage private.
+7. publishes the verified checkpoint to the public Hugging Face repository and
+   registers attributed public GLaaS lineage.
 
 The supervisor must enforce a $5 NTE ceiling across provisioning and all stages;
 stage timeouts alone do not enforce a dollar budget. No retry allowance is authorized. The one-hour training timeout bounds the paid training stage.
@@ -89,9 +88,60 @@ and publication remain untraced orchestration. Packaging emits exactly one
 `E2E_ARTIFACT` and one `E2E_RESULT` receipt and writes `result.json` beside the
 manifest. The declared artifact is `model.safetensors.index.json`; the manifest
 includes all checkpoint shards and supporting files. Success requires exactly
-100 optimizer steps, finite loss, immutable private HF read-back, canonical
+100 optimizer steps, finite loss, immutable anonymous HF read-back, canonical
 lineage verification, and consistent terminal TReqs authorities.
 
 The access checker and publication metadata read the actual workflow destination
 so per-attempt binding also changes the repository checked before downloads.
 This recipe never uploads to the public notes repository.
+
+## Unattended public canary
+
+The host supervisor is `.treqs/scripts/public_canary_supervisor.py`. It uses the
+existing TReqs CLI and the pinned harness verification helpers; it does not run
+an LLM or modify the private campaign attempt. Human authorization for the public
+run and its $5 compute budget is recorded in the external launch plan.
+
+The supervisor creates one TReqs request with `--lineage-mode public`, queues it,
+monitors the full allocation cost, waits for automatic idle shutdown, checks all
+seven tasks, verifies anonymous HF downloads and public training-to-PUT lineage,
+and adds `PUBLIC-RELEASE.md` plus evidence to notes PR #18. The original private
+capture and audit stay in that PR as historical evidence.
+
+The plan pins source and harness commits, target/AMI, repository, source branch,
+and an isolated bound control checkout. It has `budgetUsd: 5`, `stopAtUsd: 4`,
+`conservativeHourlyUsd: 4`, and `maxJobSeconds: 3000`. The hourly rate is a
+conservative monitoring estimate above the prior allocation's effective rate.
+The target has a 15-minute idle shutdown; the early stop reserves shutdown cost.
+This is a supervised stop policy, not a provider-enforced dollar limit. It needs
+host/API availability; launchd restarts crashes and caffeinate prevents idle sleep.
+
+Run the frozen host environment under a user launchd service:
+
+```bash
+/path/to/host/python .treqs/scripts/public_canary_supervisor.py --plan /absolute/run/plan.json
+```
+
+The service persists `state.json`, `events.jsonl`, `workload.jsonl`, anonymous
+verification receipts, and the exact notes commit beside the plan. `complete`
+means compute is stopped, every public check passed, and the notes PR update was
+pushed and read back. `failed` includes a reason and never launches another paid
+job. A lost create/queue reply is reconciled by request title and request ID;
+an ambiguous operation is not repeated. Re-running the same plan resumes it.
+Do not delete its state or edit its immutable plan to retry a paid run.
+
+Read `state.json` for status or `events.jsonl` for transitions. Operational TReqs
+commands run only from the isolated control checkout. Post-run verification and
+notes publication retry for up to three hours, without additional GPU jobs.
+Safetensors shards are downloaded and checked one at a time to limit disk use;
+the byte hashes, sizes, and tensor inventory are retained in the public receipt.
+
+Host regression checks:
+
+```bash
+python -m pytest -q tests/treqs/test_public_canary_supervisor.py
+python -m unittest discover -s tests/treqs -p test_droid_canary_offline.py -v
+```
+
+The worker also runs `tests/treqs/test_droid_canary_contract.py` against its pinned
+training environment before downloading the model inputs.

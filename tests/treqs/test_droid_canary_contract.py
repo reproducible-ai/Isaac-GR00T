@@ -659,8 +659,8 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
         f"hf://{load_contract().publication_repository()}/"
         "artifacts/droid-canary/checkpoint-100" in publish["command"]
     )
-    assert "--private --yes --no-tag" in publish["command"]
-    assert "--public" not in publish["command"]
+    assert "--public --yes --no-tag" in publish["command"]
+    assert "--private" not in publish["command"]
     assert "artifacts/droid-canary/dataset" not in publish["command"]
     assert "/tmp/isaac-groot-hf" not in publish["command"]
     assert front_matter["license"] == "other"

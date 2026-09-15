@@ -1,7 +1,7 @@
-name: Isaac GR00T N1.7 DROID 100-step private canary
+name: Isaac GR00T N1.7 DROID 100-step public canary
 
-# TReqs traces ordinary workload commands. Publication binds to a private
-# attempt repository before execution; generated paths have tracked scaffolds.
+# TReqs traces ordinary workload commands with attributed public lineage.
+# Generated paths have tracked scaffolds; publication targets the public model.
 
 secrets:
   - HF_TOKEN
@@ -101,5 +101,5 @@ publish:
       test -s "$CHECKPOINT/$document"
     done
     roar status --untracked-dirs
-    roar put artifacts/droid-canary/checkpoint-100 hf://reproducible-ai/stage-gr00t-n1-7-c1d5947fef2a/artifacts/droid-canary/checkpoint-100 --private --yes --no-tag -m "GR00T N1.7 100-step private DROID canary"
+    roar put artifacts/droid-canary/checkpoint-100 hf://reproducible-ai/gr00t-n1-7/artifacts/droid-canary/checkpoint-100 --public --yes --no-tag -m "GR00T N1.7 100-step public DROID canary"
   trace: "off"
