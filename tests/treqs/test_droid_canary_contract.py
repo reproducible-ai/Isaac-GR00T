@@ -155,7 +155,7 @@ def test_setup_preflights_hf_access_before_installing_the_environment(monkeypatc
     assert all(request.get_header("Authorization") == "Bearer scoped-token" for request in requests)
     assert any("Cosmos-Reason2-2B" in request.full_url for request in requests)
     write_request = next(request for request in requests if request.get_method() == "POST")
-    assert "reproducible-ai/harness-test-pending/preupload/main" in write_request.full_url
+    assert f"{load_contract().publication_repository()}/preupload/main" in write_request.full_url
     assert json.loads(write_request.data)["files"][0]["path"] == (".hf-write-permission-check")
     setup = load_workflow()["setup"]["command"]
     assert setup.index("check_hf_access.py") < setup.index("pip install")
@@ -184,7 +184,7 @@ def test_hf_write_preflight_is_non_mutating_and_explains_missing_permission(monk
 
     with pytest.raises(
         RuntimeError,
-        match="write access to reproducible-ai/harness-test-pending",
+        match="write access to " + load_contract().publication_repository(),
     ):
         check.check_write_access("token")
 
@@ -656,7 +656,7 @@ def test_checkpoint_is_labeled_and_published_to_the_precreated_model_repo():
     assert "roar register" not in publish["command"]
     assert publish["command"].count("roar put ") == 1
     assert (
-        "hf://reproducible-ai/harness-test-pending/"
+        f"hf://{load_contract().publication_repository()}/"
         "artifacts/droid-canary/checkpoint-100" in publish["command"]
     )
     assert "--private --yes --no-tag" in publish["command"]
@@ -727,6 +727,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
 
     monkeypatch.setattr(Path, "write_bytes", track_scaffold_write)
 
+    result_path.write_text(json.dumps(verified_fixture(checkpoint, tmp_path)))
     package.main()
 
     assert (checkpoint / "LICENSE").read_text() == "base license\n"
@@ -734,7 +735,7 @@ def test_package_copies_upstream_notices_and_writes_release_metadata(monkeypatch
     assert "Built on NVIDIA Cosmos" in (checkpoint / "NOTICE").read_text()
     assert (checkpoint / "NVIDIA_OPEN_MODEL_LICENSE.md").read_text() == ("cosmos license\n")
     publication = json.loads((checkpoint / "publication.json").read_text())
-    assert publication["repository"] == ("reproducible-ai/harness-test-pending")
+    assert publication["repository"] == load_contract().publication_repository()
     assert publication["version"] == "artifacts/droid-canary/checkpoint-100"
     artifact_manifest = json.loads((checkpoint / "artifact-manifest.json").read_text())
     assert artifact_manifest["schema"] == "reproai.artifact-manifest/v1"
@@ -792,7 +793,7 @@ def test_publication_binding_follows_the_actual_workflow(tmp_path):
     workflow.write_text(
         (ROOT / ".treqs/workflows/droid-canary.yaml")
         .read_text()
-        .replace("reproducible-ai/harness-test-pending", "reproducible-ai/harness-test-attempt-abc")
+        .replace(contract.publication_repository(), "reproducible-ai/harness-test-attempt-abc")
     )
     assert contract.publication_repository(workflow) == "reproducible-ai/harness-test-attempt-abc"
 
@@ -803,7 +804,7 @@ def test_package_receipts_bind_steps_metric_and_checkpoint(monkeypatch, tmp_path
     checkpoint.mkdir()
     (checkpoint / "model.safetensors.index.json").write_text('{"weight_map": {}}')
     monkeypatch.setattr(package, "CHECKPOINT_PATH", checkpoint)
-    evaluation = {"status": "passed", "global_step": 100, "final_loss": 0.095}
+    evaluation = verified_fixture(checkpoint, tmp_path)
     package.write_training_receipts(evaluation)
     lines = capsys.readouterr().out.splitlines()
     artifact = json.loads(
@@ -831,3 +832,21 @@ def test_package_receipts_bind_steps_metric_and_checkpoint(monkeypatch, tmp_path
     ):
         with pytest.raises(RuntimeError):
             package.write_training_receipts(invalid)
+
+
+def verified_fixture(checkpoint, tmp_path):
+    verify = load_canary_script("verify_droid_canary.py")
+    for number in (1, 2):
+        save_file({f"weight_{number}": torch.zeros(1)}, checkpoint / f"model-{number}.safetensors")
+    (checkpoint / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {f"weight_{n}": f"model-{n}.safetensors" for n in (1, 2)}})
+    )
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 100, "log_history": [{"loss": 0.095}]})
+    )
+    verify.CHECKPOINT_PATH = checkpoint
+    verify.INPUT_MANIFEST_PATH = tmp_path / "input.json"
+    verify.INPUT_MANIFEST_PATH.write_text("{}")
+    verify.RESULT_PATH = checkpoint / "evaluation.json"
+    verify.main()
+    return json.loads(verify.RESULT_PATH.read_text())

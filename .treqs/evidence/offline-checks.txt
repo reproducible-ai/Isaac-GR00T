@@ -1,0 +1,7 @@
+test_receipts_and_stale_checkpoint_rejection (test_droid_canary_offline.OfflineContract.test_receipts_and_stale_checkpoint_rejection) ... ok
+test_workflow_and_bound_publication (test_droid_canary_offline.OfflineContract.test_workflow_and_bound_publication) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.035s
+
+OK

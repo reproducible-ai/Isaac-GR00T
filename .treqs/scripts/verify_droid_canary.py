@@ -20,7 +20,7 @@ def sha256_file(path: Path) -> str:
 
 
 def inspect_safetensors(path: Path) -> tuple[dict[str, object], set[str]]:
-    """Validate the tensor table without materializing the full checkpoint."""
+    """Load each tensor on CPU, one at a time, and validate the tensor table."""
     with safe_open(path, framework="pt", device="cpu") as archive:
         tensor_names = list(archive.keys())
         if not tensor_names:
@@ -28,7 +28,7 @@ def inspect_safetensors(path: Path) -> tuple[dict[str, object], set[str]]:
 
         first_tensor = tensor_names[0]
         for tensor_name in tensor_names:
-            archive.get_slice(tensor_name).get_shape()
+            archive.get_tensor(tensor_name)
 
         return (
             {
@@ -133,6 +133,8 @@ def main() -> None:
     result = {
         "schema_version": 1,
         "status": "passed",
+        "loadVerified": True,
+        "trainer_state_sha256": sha256_file(trainer_state_path),
         "global_step": TRAINING_STEPS,
         "final_loss": final_loss,
         "checkpoint": str(checkpoint),

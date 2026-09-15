@@ -125,6 +125,7 @@ def write_training_receipts(evaluation: dict) -> None:
     loss = evaluation.get("final_loss")
     if (
         evaluation.get("status") != "passed"
+        or evaluation.get("loadVerified") is not True
         or evaluation.get("global_step") != TRAINING_STEPS
         or isinstance(loss, bool)
         or not isinstance(loss, (int, float))
@@ -132,6 +133,17 @@ def write_training_receipts(evaluation: dict) -> None:
     ):
         raise RuntimeError("Packaging requires exactly 100 steps and a finite loss")
     index = CHECKPOINT_PATH / "model.safetensors.index.json"
+    records = [evaluation.get("safetensors_index", {})] + evaluation.get("model_files", [])
+    expected = {index.name} | {path.name for path in CHECKPOINT_PATH.glob("*.safetensors")}
+    if len(records) < 3 or {Path(record.get("path", "")).name for record in records} != expected:
+        raise RuntimeError("Missing verified checkpoint inventory")
+    for record in records:
+        path = CHECKPOINT_PATH / Path(record["path"]).name
+        if not path.is_file() or sha256_file(path) != record.get("sha256"):
+            raise RuntimeError("Checkpoint changed after verification")
+    state = CHECKPOINT_PATH / "trainer_state.json"
+    if sha256_file(state) != evaluation.get("trainer_state_sha256"):
+        raise RuntimeError("Trainer state changed after verification")
     manifest = write_artifact_manifest()
     artifact = {
         **manifest,
@@ -150,7 +162,8 @@ def write_training_receipts(evaluation: dict) -> None:
         "artifactSha256": artifact["sha256"],
         "artifactSizeBytes": artifact["sizeBytes"],
         "loadVerified": True,
-        "optimizerSteps": TRAINING_STEPS,
+        "optimizerSteps": evaluation["global_step"],
+        "taskMetric": {"metric": "finiteLoss", "minimum": 1},
         "finiteLoss": 1,
         "finalLoss": loss,
     }
