@@ -1,0 +1,91 @@
+{
+  "model": "GR00T N1.7",
+  "projection": {
+    "allocationOverhead": {
+      "clockToleranceSeconds": 2,
+      "method": "single-allocation/v1",
+      "source": "Conservative forecast allowance of $0.15 per GiB of verified final release files for one AWS Ohio internet upload; not an observed invoice. Compute, up to 1 TiB gp3 and one IPv4 address are covered by the separate $4/allocation-hour allowance. https://aws.amazon.com/ec2/pricing/on-demand/",
+      "trainTaskName": "train",
+      "transferUsdPerGiB": 0.15
+    },
+    "estimator": "ols/v1",
+    "exclusions": [],
+    "maxExtrapolationFactor": 100,
+    "maxRelativeResidual": 0.1,
+    "maxSlopeSpread": 0.2,
+    "rate": {
+      "billingIncrementSeconds": 1,
+      "minimumBilledSeconds": 60,
+      "observedAt": "2026-09-17T01:38:26.841812Z",
+      "source": "Conservative allocation allowance: AWS Ohio Linux OnDemand g7e.2xlarge is $3.36312/hour (AWS price list published 2026-09-10); remainder allows up to 1 TiB gp3 root storage and one public IPv4 address. Transfer costs require separate evidence. https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/us-east-2/index.json",
+      "unit": "allocation",
+      "usdPerHour": 4.0
+    }
+  },
+  "protocol": {
+    "cachePolicy": "Pre-read pinned inputs before each independent process; fresh per-point compiler caches; reset weights, optimizer, scheduler and RNG from the same base checkpoint.",
+    "finalPointId": "p3",
+    "maxPointSeconds": 2700,
+    "minimumSteadyUpdates": 50,
+    "points": [
+      {
+        "id": "p1",
+        "steps": 100
+      },
+      {
+        "id": "p2",
+        "steps": 200
+      },
+      {
+        "id": "p3",
+        "steps": 400
+      }
+    ],
+    "seed": 42,
+    "timingPolicy": "synchronized-training-only"
+  },
+  "recipe": {
+    "baseModel": {
+      "repository": "https://huggingface.co/nvidia/GR00T-N1.7-3B",
+      "revision": "2fc962b973bccdd5d8ce4f67cc63b264d6886495"
+    },
+    "checkpoint": {
+      "atEnd": true,
+      "everySteps": 1000,
+      "scope": "model, optimizer, scheduler and RNG state; retain one checkpoint"
+    },
+    "configSha256": "66965fc5df4acf25c27176c761df0e4b592c189f0bc4603d96811474d8cfb8da",
+    "dataset": {
+      "repository": "https://huggingface.co/datasets/lerobot/droid_1.0.1",
+      "revision": "0eabc778f959c54b8c5aa3626cc1128d2d2e54d4",
+      "selection": "First 32 DROID episodes, both model cameras, converted with the pinned source converter; the estimate concerns this DROID fine-tuning scenario."
+    },
+    "evaluation": {
+      "atEnd": false,
+      "everySteps": null,
+      "scope": "No periodic policy evaluation in this fine-tuning scenario"
+    },
+    "fullSteps": 10000,
+    "gradientAccumulationSteps": 1,
+    "hardware": {
+      "accelerator": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "gpuCount": 1,
+      "instanceType": "g7e.2xlarge"
+    },
+    "perDeviceBatchSize": 32,
+    "precision": "bf16",
+    "scheduler": {
+      "name": "cosine",
+      "warmupSteps": 500
+    },
+    "source": {
+      "repository": "https://github.com/reproducible-ai/Isaac-GR00T",
+      "revision": "c084d6eab090a2b5822db474d790a00dfe7fae5d"
+    },
+    "trainableModules": [
+      "projector",
+      "diffusion_model"
+    ]
+  },
+  "schema": "reproai.calibration-plan/v1"
+}

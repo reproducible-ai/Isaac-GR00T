@@ -28,6 +28,9 @@ class TrainingConfig:
 
     # Basic training
     max_steps: int = 30000  # this will override num_epochs
+    calibration_stop_steps: Optional[int] = None
+    calibration_timing_path: Optional[str] = None
+    calibration_warmup_updates: int = 20
 
     global_batch_size: int = 1024
     """Total batch summed across all GPUs in one forward/backward, BEFORE

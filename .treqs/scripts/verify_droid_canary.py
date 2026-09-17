@@ -42,13 +42,14 @@ def inspect_safetensors(path: Path) -> tuple[dict[str, object], set[str]]:
         )
 
 
-def main() -> None:
-    if not INPUT_MANIFEST_PATH.is_file():
-        raise RuntimeError(f"Missing input manifest: {INPUT_MANIFEST_PATH}")
+def verify_checkpoint(
+    checkpoint: Path, steps: int, input_manifest: Path, result_path: Path
+) -> None:
+    if not input_manifest.is_file():
+        raise RuntimeError(f"Missing input manifest: {input_manifest}")
 
-    checkpoint = CHECKPOINT_PATH
     if not checkpoint.is_dir():
-        raise RuntimeError(f"Missing {TRAINING_STEPS}-step checkpoint: {checkpoint}")
+        raise RuntimeError(f"Missing {steps}-step checkpoint: {checkpoint}")
     model_files = sorted(checkpoint.glob("*.safetensors"))
     if not model_files:
         raise RuntimeError(f"No safetensors model weights found in {checkpoint}")
@@ -93,9 +94,9 @@ def main() -> None:
     if not trainer_state_path.is_file():
         raise RuntimeError(f"Missing trainer state: {trainer_state_path}")
     trainer_state = json.loads(trainer_state_path.read_text())
-    if trainer_state.get("global_step") != TRAINING_STEPS:
+    if trainer_state.get("global_step") != steps:
         raise RuntimeError(
-            f"Expected global_step={TRAINING_STEPS}; found {trainer_state.get('global_step')}"
+            f"Expected global_step={steps}; found {trainer_state.get('global_step')}"
         )
 
     log_history = trainer_state.get("log_history", [])
@@ -135,15 +136,19 @@ def main() -> None:
         "status": "passed",
         "loadVerified": True,
         "trainer_state_sha256": sha256_file(trainer_state_path),
-        "global_step": TRAINING_STEPS,
+        "global_step": steps,
         "final_loss": final_loss,
         "checkpoint": str(checkpoint),
         "model_files": model_records,
         "safetensors_index": safetensors_index,
         "final_log": log_history[-1] if log_history else None,
     }
-    RESULT_PATH.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-    print(f"DROID canary passed at global_step={TRAINING_STEPS}; result={RESULT_PATH}")
+    result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    print(f"DROID canary passed at global_step={steps}; result={result_path}")
+
+
+def main() -> None:
+    verify_checkpoint(CHECKPOINT_PATH, TRAINING_STEPS, INPUT_MANIFEST_PATH, RESULT_PATH)
 
 
 if __name__ == "__main__":

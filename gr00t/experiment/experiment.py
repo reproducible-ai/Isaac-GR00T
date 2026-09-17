@@ -29,6 +29,7 @@ import wandb
 
 from gr00t.configs.base_config import Config
 from gr00t.configs.training.training_config import check_resume_compatibility
+from gr00t.experiment.calibration import make_calibration_callback, validate_calibration
 
 # Use custom trainer that profiles data loading & forward times
 from gr00t.experiment.trainer import Gr00tTrainer, ProfCallback
@@ -191,6 +192,7 @@ def save_initial_actions_artifact(train_dataset, save_cfg_dir: Path):
 
 def run(config: Config):
     """Main training function."""
+    validate_calibration(config.training)
     warn_configs(config)
     check_resume_compatibility(config.training)
 
@@ -334,6 +336,9 @@ def run(config: Config):
         run_on_rank0(save_initial_actions_artifact, train_dataset, save_cfg_dir)
 
     # Train
+    if config.training.calibration_stop_steps is not None:
+        # Register last so checkpoint timing includes the existing format callbacks.
+        trainer.add_callback(make_calibration_callback(config.training))
     logging.info("🚀 Starting training...")
     if config.training.enable_profiling:
         from functools import partial
@@ -367,7 +372,8 @@ def run(config: Config):
         trainer.train(resume_from_checkpoint=config.training.resume_from_checkpoint)
 
     # Save final model
-    trainer.save_model()
+    if config.training.calibration_stop_steps is None:
+        trainer.save_model()
     logging.info(f"Model saved to {output_dir}")
 
     if config.training.assert_loss_less_than is not None:

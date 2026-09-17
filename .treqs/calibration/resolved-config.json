@@ -1,0 +1,925 @@
+{
+  "data": {
+    "allow_padding": false,
+    "datasets": [
+      {
+        "dataset_paths": [
+          "artifacts/droid-calibration/inputs/dataset"
+        ],
+        "dataset_type": "physical_embodiment",
+        "embodiment_tag": "oxe_droid_relative_eef_relative_joint",
+        "mix_ratio": 1.0,
+        "val_dataset_path": null
+      }
+    ],
+    "download_cache": false,
+    "ds_weights_alpha": null,
+    "episode_sampling_rate": 0.1,
+    "image_crop_size": [
+      244,
+      244
+    ],
+    "image_target_size": [
+      224,
+      224
+    ],
+    "mock_dataset_mode": false,
+    "modality_configs": {
+      "libero_sim": {
+        "action": {
+          "action_configs": null,
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "roll",
+            "pitch",
+            "yaw",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.action.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "roll",
+            "pitch",
+            "yaw",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "image",
+            "wrist_image"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "oxe_droid_relative_eef_relative_joint": {
+        "action": {
+          "action_configs": [
+            {
+              "format": "xyz+rot6d",
+              "rep": "relative",
+              "state_key": "eef_9d",
+              "type": "eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": "gripper_position",
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": "joint_position",
+              "type": "non_eef"
+            }
+          ],
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "eef_9d",
+            "gripper_position",
+            "joint_position"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.language.language_instruction"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "eef_9d",
+            "gripper_position",
+            "joint_position"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            -15,
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "exterior_image_1_left",
+            "wrist_image_left"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "robocasa_gr1_tabletop": {
+        "action": {
+          "action_configs": [
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            }
+          ],
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+            "waist"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "task"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+            "waist"
+          ],
+          "sin_cos_embedding_keys": [
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+            "waist"
+          ]
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "ego_view_bg_crop_pad_res256_freq20"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "robocasa_panda_omron": {
+        "action": {
+          "action_configs": null,
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "gripper_close",
+            "end_effector_position",
+            "end_effector_rotation",
+            "base_motion",
+            "control_mode"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.action.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "gripper_qpos",
+            "base_position",
+            "base_rotation",
+            "end_effector_position_relative",
+            "end_effector_rotation_relative",
+            "gripper_qvel",
+            "end_effector_position_absolute",
+            "end_effector_rotation_absolute",
+            "joint_position",
+            "joint_position_cos",
+            "joint_position_sin",
+            "joint_velocity"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "res256_image_side_0",
+            "res256_image_side_1",
+            "res256_image_wrist_0"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "simpler_env_google": {
+        "action": {
+          "action_configs": null,
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "roll",
+            "pitch",
+            "yaw",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.action.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "rx",
+            "ry",
+            "rz",
+            "rw",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "image"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "simpler_env_widowx": {
+        "action": {
+          "action_configs": null,
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "roll",
+            "pitch",
+            "yaw",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.action.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "x",
+            "y",
+            "z",
+            "roll",
+            "pitch",
+            "yaw",
+            "pad",
+            "gripper"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "image_0"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "unitree_g1_full_body_with_waist_height_nav_cmd": {
+        "action": {
+          "action_configs": [
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "relative",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            }
+          ],
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+            "waist",
+            "base_height_command",
+            "navigate_command"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "left_leg",
+            "right_leg",
+            "waist",
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "ego_view"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      },
+      "unitree_g1_sonic": {
+        "action": {
+          "action_configs": [
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            },
+            {
+              "format": "default",
+              "rep": "absolute",
+              "state_key": null,
+              "type": "non_eef"
+            }
+          ],
+          "delta_indices": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "motion_token",
+            "left_hand_joints",
+            "right_hand_joints"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "language": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "annotation.human.task_description"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "state": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "left_leg",
+            "right_leg",
+            "waist",
+            "left_arm",
+            "right_arm",
+            "left_hand",
+            "right_hand",
+            "projected_gravity"
+          ],
+          "sin_cos_embedding_keys": null
+        },
+        "video": {
+          "action_configs": null,
+          "delta_indices": [
+            0
+          ],
+          "mean_std_embedding_keys": null,
+          "modality_keys": [
+            "ego_view"
+          ],
+          "sin_cos_embedding_keys": null
+        }
+      }
+    },
+    "mode": "single_turn",
+    "multiprocessing_context": "fork",
+    "num_shards_per_epoch": 100000,
+    "override_pretraining_statistics": true,
+    "random_chop": 0.0,
+    "seed": 42,
+    "shard_size": 1024,
+    "shuffle": true,
+    "subsample_ratio": 1.0
+  },
+  "load_config_path": null,
+  "model": {
+    "action_horizon": 40,
+    "add_pos_embed": true,
+    "apply_sincos_state_encoding": false,
+    "attend_text_every_n_blocks": 2,
+    "attn_dropout": 0.2,
+    "backbone_embedding_dim": 2048,
+    "backbone_model_type": "qwen",
+    "backbone_trainable_params_fp32": true,
+    "color_jitter_params": {
+      "brightness": 0.3,
+      "contrast": 0.4,
+      "hue": 0.08,
+      "saturation": 0.5
+    },
+    "crop_fraction": null,
+    "diffusion_model_cfg": {
+      "attention_head_dim": 48,
+      "dropout": 0.2,
+      "final_dropout": true,
+      "interleave_self_attention": true,
+      "norm_type": "ada_norm",
+      "num_attention_heads": 32,
+      "num_layers": 16,
+      "output_dim": 1024,
+      "positional_embeddings": null
+    },
+    "exclude_state": false,
+    "extra_augmentation_config": null,
+    "formalize_language": true,
+    "hidden_size": 1024,
+    "image_crop_size": [
+      230,
+      230
+    ],
+    "image_target_size": [
+      256,
+      256
+    ],
+    "input_embedding_dim": 1536,
+    "letter_box_transform": false,
+    "load_bf16": false,
+    "max_action_dim": 132,
+    "max_num_embodiments": 32,
+    "max_seq_len": 1024,
+    "max_state_dim": 132,
+    "model_dtype": "bfloat16",
+    "model_name": "nvidia/Cosmos-Reason2-2B",
+    "model_revision": "9ce19a195e423419c349abfc86fd07178b230561",
+    "model_type": "Gr00tN1d7",
+    "noise_beta_alpha": 1.5,
+    "noise_beta_beta": 1.0,
+    "noise_s": 0.999,
+    "num_inference_timesteps": 4,
+    "num_timestep_buckets": 1000,
+    "random_rotation_angle": null,
+    "reproject_vision": false,
+    "select_layer": 12,
+    "shortest_image_edge": null,
+    "state_dropout_prob": 0.2,
+    "state_history_length": 1,
+    "tune_diffusion_model": true,
+    "tune_llm": false,
+    "tune_projector": true,
+    "tune_top_llm_layers": 0,
+    "tune_visual": false,
+    "tune_vlln": true,
+    "use_albumentations_transforms": true,
+    "use_alternate_vl_dit": true,
+    "use_flash_attention": false,
+    "use_mean_std": false,
+    "use_percentiles": true,
+    "use_relative_action": true,
+    "use_vlln": true
+  },
+  "training": {
+    "add_rl_callback": false,
+    "assert_loss_less_than": null,
+    "bf16": true,
+    "calibration_stop_steps": null,
+    "calibration_timing_path": null,
+    "calibration_warmup_updates": 20,
+    "dataloader_num_workers": 4,
+    "ddp_bucket_cap_mb": 100,
+    "deepspeed_stage": 2,
+    "enable_open_loop_eval": false,
+    "enable_profiling": false,
+    "eval_batch_size": 2,
+    "eval_bf16": true,
+    "eval_set_split_ratio": 0.1,
+    "eval_steps": 500,
+    "eval_strategy": "no",
+    "experiment_name": null,
+    "fp16": false,
+    "global_batch_size": 32,
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": false,
+    "learning_rate": 0.0001,
+    "logging_steps": 10,
+    "lr_scheduler_type": "cosine",
+    "max_concurrent_uploads": 2,
+    "max_grad_norm": 1.0,
+    "max_retries": 3,
+    "max_steps": 10000,
+    "num_gpus": 1,
+    "open_loop_eval_plot_indices": null,
+    "open_loop_eval_steps_per_traj": 100,
+    "open_loop_eval_traj_ids": [
+      0
+    ],
+    "optim": "adamw_torch",
+    "output_dir": "artifacts/droid-calibration/full-scenario",
+    "per_gpu_batch_size": null,
+    "remove_unused_columns": false,
+    "resume_from_checkpoint": false,
+    "save_best_eval_metric_greater_is_better": true,
+    "save_best_eval_metric_name": "",
+    "save_only_model": false,
+    "save_steps": 1000,
+    "save_total_limit": 1,
+    "save_vl_model": false,
+    "skip_weight_loading": false,
+    "start_from_checkpoint": "artifacts/droid-calibration/inputs/base",
+    "tf32": true,
+    "transformers_access_token": null,
+    "transformers_cache_dir": null,
+    "transformers_local_files_only": false,
+    "transformers_trust_remote_code": true,
+    "upload_checkpoints": false,
+    "upload_every": 1000,
+    "upload_last_n_checkpoints": 5,
+    "use_ddp": false,
+    "use_wandb": false,
+    "wandb_project": "finetune-gr00t-n1d7",
+    "warmup_ratio": 0.05,
+    "warmup_steps": 0,
+    "weight_decay": 1e-05
+  }
+}
