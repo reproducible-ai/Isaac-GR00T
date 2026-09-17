@@ -126,6 +126,23 @@ def build_processor(model_name: str, transformers_loading_kwargs: dict) -> Qwen3
             "Qwen3VLProcessor is not available. "
             "Please upgrade transformers: pip install transformers>=4.52.0"
         )
+    from huggingface_hub import constants, snapshot_download
+
+    if not Path(model_name).is_dir() and (
+        constants.HF_HUB_OFFLINE or transformers_loading_kwargs.get("local_files_only", False)
+    ):
+        # Transformers 4.57 may query Hub metadata for a cached tokenizer ID
+        # even in offline mode. A local snapshot avoids that lookup while
+        # retaining the requested revision and failing if it is not cached.
+        model_name = snapshot_download(
+            model_name,
+            local_files_only=True,
+            **{
+                key: transformers_loading_kwargs[key]
+                for key in ("revision", "cache_dir", "token")
+                if key in transformers_loading_kwargs
+            },
+        )
     return Qwen3VLProcessor.from_pretrained(model_name, **transformers_loading_kwargs)
 
 
