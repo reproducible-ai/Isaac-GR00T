@@ -62,6 +62,8 @@ class CalibrationProcessTests(unittest.TestCase):
 
     def test_nonfinal_weights_are_removed_before_next_independent_point(self):
         args = self.prepare_point_run()
+        plan = json.loads(args.plan.read_bytes())
+        planned_steps = {point["id"]: point["steps"] for point in plan["protocol"]["points"]}
         completed = []
 
         def child(command, *, output, **kwargs):
@@ -88,7 +90,7 @@ class CalibrationProcessTests(unittest.TestCase):
             directory.mkdir(parents=True)
             (directory / "weights.bin").write_bytes(b"w" * 65536)
             (args.output / point_id / "final-weights.bin").write_bytes(b"w" * 65536)
-            steps = {"p1": 100, "p2": 200, "p3": 400}[point_id]
+            steps = planned_steps[point_id]
             start = len(completed) * 1000 + 1
             (args.output / f"{point_id}.json").write_text(
                 json.dumps(

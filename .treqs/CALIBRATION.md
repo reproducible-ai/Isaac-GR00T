@@ -14,13 +14,20 @@ Retain check output and temporary files only under the ignored `artifacts/operat
 ## Recipe and evidence
 
 The private workflow is `.treqs/workflows/droid-calibration.yaml`. It collects three
-independent 100/200/400-update points on one 96 GB RTX PRO 6000 Blackwell GPU. The
+independent 200/550/900-update points on one 96 GB RTX PRO 6000 Blackwell GPU. The
 reviewed full scenario is **10,000-update DROID fine-tuning**, not original model
 pretraining: batch 32, BF16, frozen language/vision backbone, trainable projector and
 diffusion model, cosine scheduling with 500 warmup updates, and a complete checkpoint
 every 1,000 updates. It uses the first 32 pinned DROID episodes and both model cameras.
 This data selection bounds the scenario; it does not establish performance across
 the full DROID distribution or model quality.
+
+The evenly spaced 350-update intervals reduce the influence of process-startup
+variation observed with the earlier 100/200/400 protocol. The longest point remains
+below the first scheduled 1,000-update save; the adapter continues to reject
+periodic checkpoint crossings. The estimator and its 20% slope-spread and 10%
+residual limits are unchanged. Longer points can still be not-estimable, in which
+case retain the measurements and publish the reason with a null estimate.
 
 `.treqs/calibration/resolved-config.json` contains the complete configuration produced
 by `scripts/resolve_droid_calibration.py`. The runtime rebuilds that typed configuration
@@ -41,8 +48,8 @@ Raw journals survive incomplete points. Flushed `CALIBRATION_EVENT=` stdout reco
 preserve point start, completion and failure diagnostics in the host log capture. Nonzero exits, timeouts and termination
 signals fail the workload and stop the training process group. Successful packaging
 reads every final safetensors tensor, checks trainer state and finite loss, and emits
-exactly one `E2E_ARTIFACT` / `E2E_RESULT` pair for the **400-update** checkpoint. The
-700 total measured updates are independent points, not one accumulated checkpoint
+exactly one `E2E_ARTIFACT` / `E2E_RESULT` pair for the **900-update** checkpoint. The
+1,650 total measured updates are independent points, not one accumulated checkpoint
 or separately billed jobs.
 
 The release includes optimizer/scheduler state, raw timing/process records, resolved
