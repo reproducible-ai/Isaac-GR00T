@@ -2,6 +2,7 @@
 
 import contextlib
 import copy
+import errno
 import importlib.util
 import io
 import json
@@ -10,6 +11,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -90,7 +92,7 @@ class CalibrationPackageTests(unittest.TestCase):
                     self.plan, events, initial_state_sha="a" * 64, final_sha="b" * 64
                 )
 
-    def test_real_checkpoint_readback_produces_one_final_receipt_and_honest_unknown_costs(self):
+    def prepare_checkpoint(self):
         from safetensors.torch import save_file
         import torch
 
@@ -98,6 +100,10 @@ class CalibrationPackageTests(unittest.TestCase):
         checkpoint.mkdir(parents=True)
         save_file({"a": torch.ones(2)}, str(checkpoint / "model-00001.safetensors"))
         save_file({"b": torch.zeros(2)}, str(checkpoint / "model-00002.safetensors"))
+        torch.save(
+            {"state": {0: {"exp_avg": torch.zeros(16), "exp_avg_sq": torch.ones(16)}}},
+            checkpoint / "optimizer.pt",
+        )
         (checkpoint / "model.safetensors.index.json").write_text(
             json.dumps(
                 {"weight_map": {"a": "model-00001.safetensors", "b": "model-00002.safetensors"}}
@@ -129,6 +135,150 @@ class CalibrationPackageTests(unittest.TestCase):
             (self.root / package.POINTS / f"{point['id']}.json.jsonl").write_text(
                 '{"event":"synthetic-point"}\n'
             )
+        return checkpoint
+
+    def test_copy_failure_retains_phase_error_and_emits_no_success(self):
+        self.prepare_checkpoint()
+        output = io.StringIO()
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root)
+            with (
+                patch.object(
+                    package.shutil,
+                    "copytree",
+                    side_effect=OSError(errno.ENOSPC, "simulated full filesystem"),
+                ),
+                contextlib.redirect_stdout(output),
+                self.assertRaisesRegex(OSError, "simulated full filesystem"),
+            ):
+                package.main()
+        finally:
+            os.chdir(previous)
+        events = [
+            json.loads(line.split("=", 1)[1])
+            for line in output.getvalue().splitlines()
+            if line.startswith("CALIBRATION_PACKAGE_EVENT=")
+        ]
+        self.assertTrue(events, "package failure must emit structured progress/error evidence")
+        self.assertEqual(events[-1]["event"], "failed")
+        self.assertEqual(events[-1]["phase"], "copy-checkpoint")
+        self.assertEqual(events[-1]["errno"], errno.ENOSPC)
+        self.assertIn("simulated full filesystem", events[-1]["message"])
+        retained = [
+            json.loads(line)
+            for line in (self.root / package.ROOT / "package-events.jsonl").read_text().splitlines()
+        ]
+        self.assertEqual(retained, events)
+        self.assertNotIn("E2E_RESULT=", output.getvalue())
+        self.assertNotIn("E2E_ARTIFACT=", output.getvalue())
+
+    def test_journal_storage_failure_does_not_mask_original_copy_error(self):
+        self.prepare_checkpoint()
+
+        class BrokenJournal(io.StringIO):
+            failed = False
+
+            def write(self, value):
+                if '"event":"failed"' in value:
+                    self.failed = True
+                    raise OSError(errno.EROFS, "journal write failure")
+                return super().write(value)
+
+            def fileno(self):
+                return 123
+
+            def close(self):
+                was_closed = self.closed
+                super().close()
+                if self.failed and not was_closed:
+                    raise OSError(errno.EIO, "journal close failure")
+
+        original_open = Path.open
+
+        def open_path(path, *args, **kwargs):
+            if path.name == "package-events.jsonl":
+                return BrokenJournal()
+            return original_open(path, *args, **kwargs)
+
+        previous = Path.cwd()
+        output = io.StringIO()
+        try:
+            os.chdir(self.root)
+            with (
+                patch.object(Path, "open", open_path),
+                patch.object(package.os, "fsync"),
+                patch.object(
+                    package.shutil,
+                    "copytree",
+                    side_effect=OSError(errno.ENOSPC, "original copy failure"),
+                ),
+                contextlib.redirect_stdout(output),
+                self.assertRaisesRegex(OSError, "original copy failure"),
+            ):
+                package.main()
+        finally:
+            os.chdir(previous)
+        self.assertIn("original copy failure", output.getvalue())
+        self.assertNotIn("E2E_RESULT=", output.getvalue())
+
+    def test_insufficient_copy_space_fails_before_release_mutation(self):
+        checkpoint = self.prepare_checkpoint()
+        before = {p.name: p.read_bytes() for p in checkpoint.iterdir() if p.is_file()}
+        output = io.StringIO()
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root)
+            with (
+                patch.object(package.shutil, "disk_usage", return_value=SimpleNamespace(free=0)),
+                patch.object(
+                    package.shutil,
+                    "copytree",
+                    side_effect=AssertionError("copy started with no free space"),
+                ) as copying,
+                contextlib.redirect_stdout(output),
+                self.assertRaisesRegex(OSError, "insufficient free disk space"),
+            ):
+                package.main()
+            copying.assert_not_called()
+        finally:
+            os.chdir(previous)
+        self.assertFalse((self.root / package.RELEASE).exists())
+        self.assertEqual(
+            before, {p.name: p.read_bytes() for p in checkpoint.iterdir() if p.is_file()}
+        )
+        self.assertNotIn("E2E_RESULT=", output.getvalue())
+
+    def test_space_guard_includes_optimizer_bytes(self):
+        checkpoint = self.prepare_checkpoint()
+        free_without_optimizer = 64 * 1024 * 1024 + sum(
+            path.stat().st_size for path in checkpoint.iterdir() if path.name != "optimizer.pt"
+        )
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root)
+            with (
+                patch.object(
+                    package.shutil,
+                    "disk_usage",
+                    return_value=SimpleNamespace(free=free_without_optimizer),
+                ),
+                patch.object(
+                    package.shutil,
+                    "copytree",
+                    side_effect=AssertionError("optimizer bytes were omitted"),
+                ) as copying,
+                contextlib.redirect_stdout(io.StringIO()),
+                self.assertRaisesRegex(OSError, "insufficient free disk space"),
+            ):
+                package.main()
+            copying.assert_not_called()
+        finally:
+            os.chdir(previous)
+        self.assertFalse((self.root / package.RELEASE).exists())
+
+    def test_real_checkpoint_readback_produces_one_final_receipt_and_honest_unknown_costs(self):
+        self.prepare_checkpoint()
         old = Path.cwd()
         output = io.StringIO()
         try:
@@ -163,6 +313,7 @@ class CalibrationPackageTests(unittest.TestCase):
         self.assertFalse(measurements["coverage"]["fixedWork"])
         self.assertEqual(measurements["rawLogSha256"], sha256_file(release / "timings.json"))
         manifest = json.loads((release / "artifact-manifest.json").read_bytes())
+        self.assertIn("optimizer.pt", {entry["path"] for entry in manifest["files"]})
         for entry in manifest["files"]:
             self.assertEqual(entry["sha256"], sha256_file(release / entry["path"]))
         self.assertEqual(

@@ -87,3 +87,31 @@ Tests include real CPU Transformers training with the early-stop callback and re
 safetensors checkpoint packaging. They do not establish GPU memory fit or throughput.
 
 Child stdout/stderr is streamed into host-captured workload logs and retained in each point log. Workflow path additions preserve injected Python bootstrap paths.
+
+
+## Packaging diagnostics and disk readiness
+
+Packaging records each phase and file-copy start/completion in
+`artifacts/droid-calibration/package-events.jsonl` and emits single-line
+`CALIBRATION_PACKAGE_EVENT=` records to stdout. Failures retain their phase,
+exception type/message and errno, print the original traceback to stdout, and
+exit unsuccessfully without emitting an artifact/result success pair. A journal
+write/close failure does not replace the original packaging exception. Existing
+release directories and journals are never overwritten.
+
+Before copying, the packager compares available space on the release filesystem
+with the measured complete checkpoint size plus a 64 MiB metadata reserve. This
+includes optimizer/scheduler state as well as model weights. It is a point-in-time
+check; concurrent disk writers can still exhaust space afterward. The host also
+needs enough free space for immutable artifact readback across concurrent runs.
+These records improve diagnosis but do not guarantee delivery of a failed job's
+last log chunk by the deployed compute agent.
+
+
+After a successful nonfinal point's process/timing receipt is flushed and synced,
+the wrapper removes that point's generated weight/checkpoint directory before
+launching the next point. Its timing JSON, raw journal and stdout/stderr log remain
+outside that directory. Failed-point files and the entire final-point directory
+are retained. This reduces peak training/package storage without changing the
+independent point resets, full scheduler, measured checkpoint durations or final
+artifact contract.

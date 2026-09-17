@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
+import traceback
 
 from scripts.calibration_droid import encoded, load_inputs, recipe_digest, sha256_file
 
@@ -64,22 +68,52 @@ def measured_points(plan, events, *, initial_state_sha, final_sha):
     return result
 
 
-def main():
+def package_checkpoint(progress):
     from verify_droid_canary import verify_checkpoint
 
     started = time.time()
     plan_path = Path(".treqs/calibration/plan.json")
     config_path = Path(".treqs/calibration/resolved-config.json")
+    progress("load-inputs")
     plan, config, config_bytes = load_inputs(plan_path, config_path)
     if RELEASE.exists():
         raise RuntimeError("refusing to replace a packaged calibration")
     final = plan["protocol"]["points"][-1]
     checkpoint = POINTS / final["id"] / f"checkpoint-{final['steps']}"
     evaluation_path = ROOT / "evaluation.json"
+    progress("verify-checkpoint", pointId=final["id"], optimizerSteps=final["steps"])
     verify_checkpoint(checkpoint, final["steps"], ROOT / "input-manifest.json", evaluation_path)
     evaluation = json.loads(evaluation_path.read_bytes())
     # Preserve the final model and complete optimizer/scheduler/RNG checkpoint.
-    shutil.copytree(checkpoint, RELEASE)
+    checkpoint_bytes = sum(path.stat().st_size for path in checkpoint.rglob("*") if path.is_file())
+    free_bytes = shutil.disk_usage(RELEASE.parent).free
+    required_bytes = checkpoint_bytes + 64 * 1024 * 1024
+    progress(
+        "check-copy-space",
+        checkpointBytes=checkpoint_bytes,
+        freeBytes=free_bytes,
+        requiredFreeBytes=required_bytes,
+    )
+    if free_bytes < required_bytes:
+        raise OSError(
+            errno.ENOSPC,
+            f"insufficient free disk space: need {required_bytes} bytes, have {free_bytes}",
+        )
+    progress("copy-checkpoint", checkpointBytes=checkpoint_bytes)
+
+    def copy_file(source, destination):
+        progress(
+            "copy-checkpoint",
+            file=str(Path(source).relative_to(checkpoint)),
+            action="started",
+            sizeBytes=Path(source).stat().st_size,
+        )
+        result = shutil.copy2(source, destination)
+        progress("copy-checkpoint", file=str(Path(source).relative_to(checkpoint)), action="copied")
+        return result
+
+    shutil.copytree(checkpoint, RELEASE, copy_function=copy_file)
+    progress("collect-timings")
     index = RELEASE / "model.safetensors.index.json"
     final_sha = sha256_file(index)
     manifest = json.loads((ROOT / "input-manifest.json").read_bytes())
@@ -111,6 +145,7 @@ def main():
             json.loads(line)
             for line in (POINTS / f"{point['id']}.json.jsonl").read_text().splitlines()
         ]
+    progress("write-measurements")
     (RELEASE / "timings.json").write_bytes(encoded(raw))
     # Late upload and allocation shutdown cannot truthfully be known in this payload.
     # Preserve clock anchors for later host reconciliation instead of inventing zeros.
@@ -166,6 +201,7 @@ def main():
             }
         )
     )
+    progress("copy-attribution")
     shutil.copy2(ROOT / "input-manifest.json", RELEASE / "input-manifest.json")
     shutil.copy2(evaluation_path, RELEASE / "evaluation.json")
     shutil.copy2(plan_path, RELEASE / "calibration-plan.json")
@@ -183,6 +219,7 @@ def main():
         "This is not a full run, certification or policy-quality evaluation.\n"
         f"Source: {candidate}\n"
     )
+    progress("write-manifest")
     files = [
         {
             "path": str(path.relative_to(RELEASE)),
@@ -219,6 +256,59 @@ def main():
         "finalLoss": evaluation["final_loss"],
     }
     (RELEASE / "result.json").write_bytes(encoded(result))
+    return artifact, result
+
+
+def main():
+    if RELEASE.exists():
+        raise RuntimeError("refusing to replace a packaged calibration")
+    ROOT.mkdir(parents=True, exist_ok=True)
+    phase = "start"
+    with (ROOT / "package-events.jsonl").open("x") as journal:
+
+        def record(event):
+            line = json.dumps(
+                {**event, "observedUnixSeconds": time.time()},
+                sort_keys=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
+            # Stdout must still explain a failure if the journal's filesystem fills.
+            print("CALIBRATION_PACKAGE_EVENT=" + line, flush=True)
+            journal.write(line + "\n")
+            journal.flush()
+            os.fsync(journal.fileno())
+
+        def progress(name, **fields):
+            nonlocal phase
+            phase = name
+            record({"event": "phase", "phase": phase, **fields})
+
+        try:
+            artifact, result = package_checkpoint(progress)
+            progress("complete", artifactFiles=len(artifact["files"]))
+        except BaseException as exc:
+            try:
+                record(
+                    {
+                        "event": "failed",
+                        "phase": phase,
+                        "failureType": type(exc).__name__,
+                        "errno": getattr(exc, "errno", None),
+                        "message": str(exc)[:2000],
+                    }
+                )
+            except OSError:
+                # Keep the original copy/validation error when failure evidence
+                # cannot be persisted to the same exhausted filesystem.
+                pass
+            try:
+                journal.close()
+            except OSError:
+                pass
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stdout)
+            sys.stdout.flush()
+            raise
     print("E2E_ARTIFACT=" + json.dumps(artifact, sort_keys=True, allow_nan=False), flush=True)
     print("E2E_RESULT=" + json.dumps(result, sort_keys=True, allow_nan=False), flush=True)
 

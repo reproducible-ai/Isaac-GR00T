@@ -12,6 +12,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
@@ -255,6 +256,12 @@ def run_points(args):
                 f"Completed independent calibration point {point['id']}: {point['steps']} updates",
                 flush=True,
             )
+            if point["id"] != plan["protocol"]["finalPointId"]:
+                # The completed timing and stdout/stderr live outside this directory.
+                # Only the designated final point is packaged; avoid keeping three
+                # full model/optimizer copies alive until that final copy is made.
+                shutil.rmtree(args.output / point["id"])
+                print(f"Removed nonfinal calibration weights for {point['id']}", flush=True)
 
 
 def main():

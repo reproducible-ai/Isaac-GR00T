@@ -43,7 +43,7 @@ class CalibrationProcessTests(unittest.TestCase):
             result.returncode, 1, "unknown source must remain visible to the candidate gate"
         )
 
-    def test_failed_point_events_survive_in_captured_stdout(self):
+    def prepare_point_run(self):
         source = Path(__file__).resolve().parents[2]
         root = self.root / "artifacts/droid-calibration"
         root.mkdir(parents=True)
@@ -58,11 +58,82 @@ class CalibrationProcessTests(unittest.TestCase):
             config=source / ".treqs/calibration/resolved-config.json",
             output=output,
         )
+        return args
+
+    def test_nonfinal_weights_are_removed_before_next_independent_point(self):
+        args = self.prepare_point_run()
+        completed = []
+
+        def child(command, *, output, **kwargs):
+            point_id = command[-1]
+            if completed:
+                previous = completed[-1]
+                self.assertFalse(
+                    (args.output / previous).exists(),
+                    "nonfinal checkpoint still occupies disk at the next point",
+                )
+                events = [
+                    json.loads(line)
+                    for line in (args.output / "processes.jsonl").read_text().splitlines()
+                ]
+                self.assertTrue(
+                    any(
+                        event["event"] == "point-complete" and event["pointId"] == previous
+                        for event in events
+                    )
+                )
+                self.assertTrue((args.output / f"{previous}.json").is_file())
+                self.assertTrue((args.output / f"{previous}.log").is_file())
+            directory = args.output / point_id / "checkpoint"
+            directory.mkdir(parents=True)
+            (directory / "weights.bin").write_bytes(b"w" * 65536)
+            (args.output / point_id / "final-weights.bin").write_bytes(b"w" * 65536)
+            steps = {"p1": 100, "p2": 200, "p3": 400}[point_id]
+            start = len(completed) * 1000 + 1
+            (args.output / f"{point_id}.json").write_text(
+                json.dumps(
+                    {
+                        "completedSteps": steps,
+                        "fullSteps": 10000,
+                        "trainingFinishedMonotonicSeconds": start + 2,
+                    }
+                )
+            )
+            output.write_text("retained point output\n")
+            completed.append(point_id)
+            return start, start + 3
+
+        with (
+            contextlib.chdir(self.root),
+            contextlib.redirect_stdout(io.StringIO()),
+            patch("scripts.calibration_droid.run_child", side_effect=child),
+        ):
+            run_points(args)
+        self.assertEqual(completed, ["p1", "p2", "p3"])
+        self.assertTrue((args.output / "p3/checkpoint/weights.bin").is_file())
+        self.assertTrue((args.output / "p3/final-weights.bin").is_file())
+        self.assertFalse((args.output / "p1").exists())
+        self.assertFalse((args.output / "p2").exists())
+        events = [
+            json.loads(line) for line in (args.output / "processes.jsonl").read_text().splitlines()
+        ]
+        self.assertEqual(len(events), 6, "cleanup must not change the raw process-event contract")
+
+    def test_failed_point_events_survive_in_captured_stdout(self):
+        args = self.prepare_point_run()
+        output = args.output
+        partial = output / "p1/checkpoint/partial.bin"
+
+        def failed_child(*args, **kwargs):
+            partial.parent.mkdir(parents=True)
+            partial.write_bytes(b"retained failed-point evidence")
+            raise subprocess.CalledProcessError(7, "synthetic train")
+
         captured = io.StringIO()
         with contextlib.chdir(self.root), contextlib.redirect_stdout(captured):
             with patch(
                 "scripts.calibration_droid.run_child",
-                side_effect=subprocess.CalledProcessError(7, "synthetic train"),
+                side_effect=failed_child,
             ):
                 with self.assertRaises(subprocess.CalledProcessError):
                     run_points(args)
@@ -77,6 +148,7 @@ class CalibrationProcessTests(unittest.TestCase):
         self.assertEqual([event["event"] for event in stdout], ["point-start", "point-failed"])
         self.assertEqual(stdout, journal)
         self.assertNotIn("E2E_RESULT", captured.getvalue())
+        self.assertEqual(partial.read_bytes(), b"retained failed-point evidence")
 
     def test_nonzero_child_preserves_log_and_cannot_succeed(self):
         path = self.root / "failed.log"
