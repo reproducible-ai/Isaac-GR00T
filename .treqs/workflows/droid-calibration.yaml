@@ -83,5 +83,5 @@ publish:
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
     export HF_HUB_DISABLE_XET=1
-    roar put artifacts/droid-calibration/release hf://reproducible-ai/harness-test-gr00t-calibration/artifacts/droid-calibration/release --private --yes --no-tag -m "GR00T N1.7 bounded DROID calibration"
+    roar put artifacts/droid-calibration/release hf://reproducible-ai/stage-gr00t-n1-7-bd0cd2bb1d22/artifacts/droid-calibration/release --private --yes --no-tag -m "GR00T N1.7 bounded DROID calibration"
   trace: "off"
