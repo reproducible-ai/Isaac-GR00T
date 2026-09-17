@@ -30,15 +30,15 @@
     "points": [
       {
         "id": "p1",
-        "steps": 100
-      },
-      {
-        "id": "p2",
         "steps": 200
       },
       {
+        "id": "p2",
+        "steps": 550
+      },
+      {
         "id": "p3",
-        "steps": 400
+        "steps": 900
       }
     ],
     "seed": 42,

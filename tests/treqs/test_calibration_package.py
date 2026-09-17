@@ -96,7 +96,8 @@ class CalibrationPackageTests(unittest.TestCase):
         from safetensors.torch import save_file
         import torch
 
-        checkpoint = self.root / package.POINTS / "p3/checkpoint-400"
+        final = self.plan["protocol"]["points"][-1]
+        checkpoint = self.root / package.POINTS / final["id"] / f"checkpoint-{final['steps']}"
         checkpoint.mkdir(parents=True)
         save_file({"a": torch.ones(2)}, str(checkpoint / "model-00001.safetensors"))
         save_file({"b": torch.zeros(2)}, str(checkpoint / "model-00002.safetensors"))
@@ -110,7 +111,7 @@ class CalibrationPackageTests(unittest.TestCase):
             )
         )
         (checkpoint / "trainer_state.json").write_text(
-            json.dumps({"global_step": 400, "log_history": [{"loss": 1.0}]})
+            json.dumps({"global_step": final["steps"], "log_history": [{"loss": 1.0}]})
         )
         root = self.root / package.ROOT
         (root / "inputs/base").mkdir(parents=True)
@@ -304,10 +305,13 @@ class CalibrationPackageTests(unittest.TestCase):
         ]
         self.assertEqual(len(artifacts), 1)
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["optimizerSteps"], 400)
+        self.assertEqual(results[0]["optimizerSteps"], self.plan["protocol"]["points"][-1]["steps"])
         self.assertTrue(results[0]["loadVerified"])
         measurements = json.loads((release / "calibration.json").read_bytes())
-        self.assertEqual(sum(point["completedSteps"] for point in measurements["points"]), 700)
+        self.assertEqual(
+            [point["completedSteps"] for point in measurements["points"]],
+            [point["steps"] for point in self.plan["protocol"]["points"]],
+        )
         self.assertIsNone(measurements["overhead"]["finalizationSeconds"])
         self.assertIsNone(measurements["overhead"]["otherCostUsd"])
         self.assertFalse(measurements["coverage"]["fixedWork"])
