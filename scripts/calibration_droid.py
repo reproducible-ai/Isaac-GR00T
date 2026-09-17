@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -55,6 +56,25 @@ def load_inputs(plan_path, config_path):
         or training["resume_from_checkpoint"]
     ):
         raise ValueError("resolved runtime configuration disagrees with the calibration recipe")
+    precision = "bf16" if training["bf16"] else ("fp16" if training["fp16"] else "fp32")
+    modules = {
+        name
+        for name, field in (
+            ("language_model", "tune_llm"),
+            ("vision_model", "tune_visual"),
+            ("projector", "tune_projector"),
+            ("diffusion_model", "tune_diffusion_model"),
+        )
+        if config["model"][field]
+    }
+    warmup = training["warmup_steps"] or math.ceil(training["max_steps"] * training["warmup_ratio"])
+    if (
+        precision != recipe["precision"]
+        or modules != set(recipe["trainableModules"])
+        or training["lr_scheduler_type"] != recipe["scheduler"]["name"]
+        or warmup != recipe["scheduler"]["warmupSteps"]
+    ):
+        raise ValueError("precision, trainable modules or scheduler disagree with the recipe")
     if training["save_steps"] != recipe["checkpoint"]["everySteps"]:
         raise ValueError("checkpoint cadence disagrees with plan")
     if training["eval_strategy"] != "no" or recipe["evaluation"]["everySteps"] is not None:
@@ -110,6 +130,15 @@ def run_point(args):
     run(config)
 
 
+def record_event(journal, event):
+    """Persist diagnostics locally and in captured stdout before proceeding."""
+    line = json.dumps(event, allow_nan=False)
+    journal.write(line + "\n")
+    journal.flush()
+    os.fsync(journal.fileno())
+    print("CALIBRATION_EVENT=" + line, flush=True)
+
+
 def run_points(args):
     plan, _, config_bytes = load_inputs(args.plan, args.config)
     if any(p.is_file() and p.name != ".gitkeep" for p in args.output.rglob("*")):
@@ -147,8 +176,7 @@ def run_points(args):
                 "startedUnixSeconds": time.time(),
                 "command": command,
             }
-            journal.write(json.dumps({"event": "point-start", **attempt}) + "\n")
-            journal.flush()
+            record_event(journal, {"event": "point-start", **attempt})
             try:
                 started, exited = run_child(
                     command,
@@ -172,36 +200,28 @@ def run_points(args):
                 finished = result["trainingFinishedMonotonicSeconds"]
                 if not started < finished < exited:
                     raise ValueError("child monotonic training interval is outside its process")
-                journal.write(
-                    json.dumps(
-                        {
-                            "event": "point-complete",
-                            **attempt,
-                            "startedMonotonicSeconds": started,
-                            "processExitedMonotonicSeconds": exited,
-                            "finishedUnixSeconds": time.time(),
-                            "timing": result,
-                        }
-                    )
-                    + "\n"
+                record_event(
+                    journal,
+                    {
+                        "event": "point-complete",
+                        **attempt,
+                        "startedMonotonicSeconds": started,
+                        "processExitedMonotonicSeconds": exited,
+                        "finishedUnixSeconds": time.time(),
+                        "timing": result,
+                    },
                 )
             except BaseException as exc:
-                journal.write(
-                    json.dumps(
-                        {
-                            "event": "point-failed",
-                            **attempt,
-                            "finishedUnixSeconds": time.time(),
-                            "failureType": type(exc).__name__,
-                        }
-                    )
-                    + "\n"
+                record_event(
+                    journal,
+                    {
+                        "event": "point-failed",
+                        **attempt,
+                        "finishedUnixSeconds": time.time(),
+                        "failureType": type(exc).__name__,
+                    },
                 )
-                journal.flush()
-                os.fsync(journal.fileno())
                 raise
-            journal.flush()
-            os.fsync(journal.fileno())
             print(
                 f"Completed independent calibration point {point['id']}: {point['steps']} updates",
                 flush=True,

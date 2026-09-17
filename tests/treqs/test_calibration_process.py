@@ -1,5 +1,8 @@
 """Exercise actual child-process failures and timeout cleanup without a GPU."""
 
+import contextlib
+import io
+import json
 import os
 from pathlib import Path
 import signal
@@ -7,9 +10,11 @@ import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-from scripts.calibration_droid import run_child
+from scripts.calibration_droid import run_child, run_points, sha256_file
 
 
 class CalibrationProcessTests(unittest.TestCase):
@@ -17,6 +22,41 @@ class CalibrationProcessTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+
+    def test_failed_point_events_survive_in_captured_stdout(self):
+        source = Path(__file__).resolve().parents[2]
+        root = self.root / "artifacts/droid-calibration"
+        root.mkdir(parents=True)
+        input_path = root / "input.bin"
+        input_path.write_bytes(b"synthetic pinned input")
+        (root / "input-manifest.json").write_text(
+            json.dumps({"files": [{"path": str(input_path), "sha256": sha256_file(input_path)}]})
+        )
+        output = self.root / "points"
+        args = SimpleNamespace(
+            plan=source / ".treqs/calibration/plan.json",
+            config=source / ".treqs/calibration/resolved-config.json",
+            output=output,
+        )
+        captured = io.StringIO()
+        with contextlib.chdir(self.root), contextlib.redirect_stdout(captured):
+            with patch(
+                "scripts.calibration_droid.run_child",
+                side_effect=subprocess.CalledProcessError(7, "synthetic train"),
+            ):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    run_points(args)
+        journal = [
+            json.loads(line) for line in (output / "processes.jsonl").read_text().splitlines()
+        ]
+        stdout = [
+            json.loads(line.removeprefix("CALIBRATION_EVENT="))
+            for line in captured.getvalue().splitlines()
+            if line.startswith("CALIBRATION_EVENT=")
+        ]
+        self.assertEqual([event["event"] for event in stdout], ["point-start", "point-failed"])
+        self.assertEqual(stdout, journal)
+        self.assertNotIn("E2E_RESULT", captured.getvalue())
 
     def test_nonzero_child_preserves_log_and_cannot_succeed(self):
         path = self.root / "failed.log"

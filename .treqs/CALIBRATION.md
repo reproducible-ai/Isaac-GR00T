@@ -24,7 +24,8 @@ interval. The first 20 updates are excluded from the separate steady-state avera
 Periodic save/evaluation crossings, resume, multi-GPU execution and profiling are
 rejected by this first adapter.
 
-Raw journals survive incomplete points. Nonzero exits, timeouts and termination
+Raw journals survive incomplete points. Flushed `CALIBRATION_EVENT=` stdout records
+preserve point start, completion and failure diagnostics in the host log capture. Nonzero exits, timeouts and termination
 signals fail the workload and stop the training process group. Successful packaging
 reads every final safetensors tensor, checks trainer state and finite loss, and emits
 exactly one `E2E_ARTIFACT` / `E2E_RESULT` pair for the **400-update** checkpoint. The
@@ -44,7 +45,11 @@ the host must retain and bind that evidence before a numeric all-in estimate can
 published. Without it, the current contract yields an honest null estimate. The
 plan's $4/allocation-hour value is a conservative allowance based on the retained
 Ohio EC2 price of $3.36312/hour plus disk/IPv4 allowance, not a finalized charge.
-Transfer charges need separate evidence.
+The plan also opts into allocation reconciliation: the host validates worker/process
+clocks against the completed training task and allocation boundaries, derives setup
+and finalization once, and applies a conservative $0.15/GiB transfer allowance to the
+verified release inventory. This forecast is separate from actual finalized billing.
+It requires the harness reader from PR #10 (or its merged successor).
 
 Launch through a pinned harness calibration task and scoped policy with a separate
 all-in budget, shutdown reserve, explicit notes baseline and draft-PR publication

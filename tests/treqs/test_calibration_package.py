@@ -1,6 +1,7 @@
 """CPU checkpoint packaging through the ordinary verifier and receipt writer."""
 
 import contextlib
+import copy
 import importlib.util
 import io
 import json
@@ -59,6 +60,20 @@ class CalibrationPackageTests(unittest.TestCase):
             stream.write(b" ")
         with self.assertRaisesRegex(ValueError, "pinned plan"):
             load_inputs(self.plan_path, self.config_path)
+
+    def test_recipe_metadata_cannot_disagree_with_pinned_runtime(self):
+        for field, value in (
+            ("precision", "fp32"),
+            ("trainableModules", ["language"]),
+            ("scheduler", {"name": "linear", "warmupSteps": 500}),
+            ("scheduler", {"name": "cosine", "warmupSteps": 5}),
+        ):
+            with self.subTest(field=field, value=value):
+                plan = copy.deepcopy(self.plan)
+                plan["recipe"][field] = value
+                self.plan_path.write_text(json.dumps(plan))
+                with self.assertRaisesRegex(ValueError, "recipe"):
+                    load_inputs(self.plan_path, self.config_path)
 
     def test_missing_failed_duplicate_and_changed_schedule_are_rejected(self):
         cases = [

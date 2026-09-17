@@ -1,6 +1,13 @@
 {
   "model": "GR00T N1.7",
   "projection": {
+    "allocationOverhead": {
+      "clockToleranceSeconds": 2,
+      "method": "single-allocation/v1",
+      "source": "Conservative forecast allowance of $0.15 per GiB of verified final release files for one AWS Ohio internet upload; not an observed invoice. Compute, up to 1 TB gp3 and one IPv4 address are covered by the separate $4/allocation-hour allowance. https://aws.amazon.com/ec2/pricing/on-demand/",
+      "trainTaskName": "train",
+      "transferUsdPerGiB": 0.15
+    },
     "estimator": "ols/v1",
     "exclusions": [],
     "maxExtrapolationFactor": 100,
