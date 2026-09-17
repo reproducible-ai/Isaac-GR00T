@@ -1,5 +1,18 @@
 # GR00T N1.7 DROID calibration
 
+## Restricted operator checks
+
+The harness operator has no network access. Run these standard-library commands from the frozen candidate checkout:
+
+```bash
+python3 -S -c 'from scripts.calibration_droid import load_inputs; load_inputs(".treqs/calibration/plan.json", ".treqs/calibration/resolved-config.json"); print("PASS: actual runtime recipe checks")'
+python3 -S -m unittest tests.treqs.test_calibration_timing tests.treqs.test_calibration_process tests.treqs.test_calibration_storage
+```
+
+Retain check output and temporary files only under the ignored `artifacts/operator-checks/` directory. Compare the plan SHA to the task packet and inspect the prepared workflow. After these checks pass, return the frozen candidate with a `treqs-run` request for the supervisor. The complete dependency-bearing tests below belong to the supervisor/CI and worker environment; do not attempt package downloads or unittest discovery of those tests inside the restricted operator. Report the local subset honestly and do not claim GPU fit or a completed run.
+
+## Recipe and evidence
+
 The private workflow is `.treqs/workflows/droid-calibration.yaml`. It collects three
 independent 100/200/400-update points on one 96 GB RTX PRO 6000 Blackwell GPU. The
 reviewed full scenario is **10,000-update DROID fine-tuning**, not original model
@@ -57,12 +70,13 @@ choice. This workflow alone does not enforce a dollar ceiling or authorize a lau
 The live acceptance checkpoint remains the GPU run, artifact readback, audit,
 shutdown/cost reconciliation and automatic notes PR.
 
-## Local validation
+## Supervisor and CI validation
 
-With the pinned training dependencies available:
+The supervising maintainer runs these checks before authorizing a source pin, with the pinned training dependencies available. The full calibration/loader CPU suite passed for the reviewed implementation; worker setup independently runs its prepared checks before training:
 
 ```sh
 python -m unittest discover -s tests/treqs -p 'test_calibration_*.py' -v
+python -m unittest tests.treqs.test_offline_processor
 pytest -q tests/treqs/test_droid_canary_contract.py \
   tests/gr00t/configs/test_batch_size_invariant.py \
   tests/gr00t/configs/test_base_config_safe_yaml.py \

@@ -23,6 +23,26 @@ class CalibrationProcessTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
+    def test_generated_check_logs_and_training_outputs_do_not_dirty_candidate(self):
+        source = Path(__file__).resolve().parents[2]
+        for path in (
+            "artifacts/operator-checks/recipe-check.txt",
+            "artifacts/operator-checks/process-check.txt",
+            "artifacts/droid-calibration/points/p1.json",
+            "artifacts/droid-calibration/release/calibration.json",
+        ):
+            result = subprocess.run(
+                ["git", "check-ignore", "--no-index", "--quiet", "--", path], cwd=source
+            )
+            self.assertEqual(result.returncode, 0, path)
+        result = subprocess.run(
+            ["git", "check-ignore", "--no-index", "--quiet", "--", "scripts/unreviewed.py"],
+            cwd=source,
+        )
+        self.assertEqual(
+            result.returncode, 1, "unknown source must remain visible to the candidate gate"
+        )
+
     def test_failed_point_events_survive_in_captured_stdout(self):
         source = Path(__file__).resolve().parents[2]
         root = self.root / "artifacts/droid-calibration"

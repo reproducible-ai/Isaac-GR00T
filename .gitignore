@@ -213,3 +213,6 @@ offline_open_loop_eval_plots/
 !/artifacts/droid-calibration/
 /artifacts/droid-calibration/*
 !/artifacts/droid-calibration/.gitkeep
+
+# Retained restricted-operator check evidence
+/artifacts/operator-checks/
