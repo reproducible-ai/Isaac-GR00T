@@ -1,0 +1,87 @@
+name: GR00T N1.7 independent DROID calibration
+
+# Three fresh points retain the full scheduler. Publication is private staging.
+
+secrets:
+  - HF_TOKEN
+
+setup:
+  command: |
+    set -euo pipefail
+    python3 -c 'import json,time; from pathlib import Path; Path("artifacts/droid-calibration/setup-clock.json").write_text(json.dumps({"startedUnixSeconds":time.time()}))'
+    export PATH="$(python3 -m site --user-base)/bin:${PATH}"
+    if command -v sudo >/dev/null 2>&1; then
+      PRIVILEGE=(sudo -n)
+    elif [ "$(id -u)" -eq 0 ]; then
+      PRIVILEGE=()
+    else
+      echo "setup requires root access or passwordless sudo" >&2
+      exit 1
+    fi
+    python3 -m unittest discover -s tests/treqs -p test_droid_canary_offline.py -v
+    timeout --signal=TERM 60 python3 .treqs/scripts/check_hf_access.py
+    rm -rf *.egg-info src/*.egg-info
+    timeout --signal=TERM 120 python3 -m pip install --user --disable-pip-version-check uv==0.10.12
+    command -v uv >/dev/null
+    test "$(uv --version | awk '{print $1, $2}')" = "uv 0.10.12"
+    if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v git-lfs >/dev/null 2>&1; then
+      timeout --signal=TERM 180 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update
+      timeout --signal=TERM 420 "${PRIVILEGE[@]}" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=360 install -y ffmpeg git-lfs
+    fi
+    ffmpeg -version | head -1
+    git lfs install --local
+    TORCHCODEC_WHEEL=scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl
+    if ! timeout --signal=TERM 180 git lfs pull --include="$TORCHCODEC_WHEEL" --exclude=""; then
+      timeout --signal=TERM 180 git -c credential.helper= lfs fetch https://github.com/NVIDIA/Isaac-GR00T.git HEAD --include="$TORCHCODEC_WHEEL" --exclude=""
+      git lfs checkout "$TORCHCODEC_WHEEL"
+    fi
+    python3 -c "import zipfile; assert zipfile.is_zipfile('scripts/deployment/dgpu/wheels/torchcodec-0.8.0-cp312-cp312-linux_aarch64.whl')"
+    nvidia-smi
+    timeout --signal=TERM 180 uv python install 3.12.13
+    MANAGED_PYTHON="$(UV_PYTHON_PREFERENCE=only-managed uv python find 3.12.13)"
+    test "$("$MANAGED_PYTHON" --version)" = "Python 3.12.13"
+    timeout --signal=TERM 1200 uv sync --locked --python "$MANAGED_PYTHON" --no-install-project --extra dev
+    test -f .venv/pyvenv.cfg
+    grep -qx 'include-system-site-packages = false' .venv/pyvenv.cfg
+    uv run --no-sync python -c "from torchcodec.decoders import VideoDecoder; print('torchcodec decoder import OK')"
+    uv tool install --python 3.12 --force --with huggingface-hub roar-cli==0.4.7
+    "${PRIVILEGE[@]}" ln -sf "$(command -v roar)" /usr/local/bin/roar
+    test "$(env PATH=/usr/local/bin:/usr/bin:/bin roar --version)" = "roar, version 0.4.7"
+    roar tracer use preload
+    roar tracer
+    roar init || true
+    timeout --signal=TERM 120 uv run --no-sync pytest -q tests/treqs/test_droid_canary_contract.py tests/treqs/test_calibration_timing.py tests/treqs/test_calibration_process.py tests/treqs/test_calibration_package.py tests/treqs/test_calibration_trainer.py
+  trace: "off"
+
+fetch_calibration:
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1
+    timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_calibration.py
+  trace: "run"
+
+train:
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
+    timeout --signal=TERM --kill-after=30 7200 python -m scripts.calibration_droid run --plan .treqs/calibration/plan.json --config .treqs/calibration/resolved-config.json --output artifacts/droid-calibration/points
+  trace: "run"
+
+package:
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
+    timeout --signal=TERM 1200 python .treqs/scripts/package_droid_calibration.py
+  trace: "run"
+
+publish:
+  glaas_creds: true
+  command: |
+    set -euo pipefail
+    export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
+    export HF_HUB_DISABLE_XET=1
+    roar put artifacts/droid-calibration/release hf://reproducible-ai/calibration-staging/artifacts/droid-calibration/release --private --yes --no-tag -m "GR00T N1.7 bounded DROID calibration"
+  trace: "off"

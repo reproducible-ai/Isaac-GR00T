@@ -167,7 +167,13 @@ class FinetuneConfig:
     """
 
     max_steps: int = 10000
-    """Total number of training steps to run before stopping."""
+    """Full number of optimizer updates used to construct the learning-rate schedule."""
+
+    calibration_stop_steps: int | None = None
+    """Independent early stop; max_steps still defines the full learning-rate schedule."""
+    calibration_timing_path: str | None = None
+    calibration_warmup_updates: int = 20
+    """Initial updates excluded from the steady-state timing average."""
 
     weight_decay: float = 1e-5
     """Weight decay coefficient for optimizer (L2 regularization)."""

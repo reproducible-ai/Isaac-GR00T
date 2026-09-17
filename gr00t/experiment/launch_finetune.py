@@ -116,6 +116,9 @@ if __name__ == "__main__":
     config.training.num_gpus = ft_config.num_gpus
     config.training.use_wandb = ft_config.use_wandb
     config.training.max_steps = ft_config.max_steps
+    config.training.calibration_stop_steps = ft_config.calibration_stop_steps
+    config.training.calibration_timing_path = ft_config.calibration_timing_path
+    config.training.calibration_warmup_updates = ft_config.calibration_warmup_updates
     config.training.weight_decay = ft_config.weight_decay
     config.training.warmup_ratio = ft_config.warmup_ratio
     config.training.wandb_project = ft_config.wandb_project
