@@ -123,3 +123,34 @@ class CalibrationProcessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_child_traceback_reaches_host_log(tmp_path, capsys):
+    path = tmp_path / "child.log"
+    with __import__("pytest").raises(subprocess.CalledProcessError):
+        run_child(
+            [sys.executable, "-c", 'raise RuntimeError("child diagnostic sentinel")'],
+            output=path,
+            timeout=5,
+        )
+    assert "RuntimeError: child diagnostic sentinel" in capsys.readouterr().out
+    assert "child diagnostic sentinel" in path.read_text()
+
+
+def test_workflow_preserves_injected_pythonpath():
+    import yaml
+
+    source = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load((source / ".treqs/workflows/droid-calibration.yaml").read_text())
+    for task in ("fetch_calibration", "train", "package"):
+        line = next(
+            line.strip()
+            for line in workflow[task]["command"].splitlines()
+            if "export PYTHONPATH=" in line
+        )
+        result = subprocess.check_output(
+            ["bash", "-c", line + '\nprintf "%s" "$PYTHONPATH"'],
+            env=dict(os.environ, PYTHONPATH="/injected/python-bootstrap"),
+            text=True,
+        )
+        assert "/injected/python-bootstrap" in result.split(":")

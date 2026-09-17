@@ -15,6 +15,7 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 
@@ -91,8 +92,24 @@ def run_child(command, *, output, timeout, env=None):
     started = time.monotonic()
     with output.open("x") as stream:
         process = subprocess.Popen(
-            command, stdout=stream, stderr=subprocess.STDOUT, env=env, start_new_session=True
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=env,
+            start_new_session=True,
+            text=True,
+            errors="replace",
+            bufsize=1,
         )
+
+        def copy_output():
+            for line in process.stdout:
+                stream.write(line)
+                stream.flush()
+                print(line, end="", flush=True)
+
+        pump = threading.Thread(target=copy_output, daemon=True)
+        pump.start()
         try:
             code = process.wait(timeout=timeout)
         except BaseException:
@@ -105,6 +122,18 @@ def run_child(command, *, output, timeout, env=None):
             except ProcessLookupError:
                 process.wait()
             raise
+        finally:
+            pump.join(timeout=5)
+            if pump.is_alive():
+                # A descendant holding the pipe must not outlive a point.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                pump.join(timeout=5)
+                if pump.is_alive():
+                    raise RuntimeError("child log pipe did not close")
+            process.stdout.close()
     if code:
         raise subprocess.CalledProcessError(code, command)
     return started, time.monotonic()

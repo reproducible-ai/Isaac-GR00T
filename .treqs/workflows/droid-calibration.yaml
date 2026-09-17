@@ -57,7 +57,7 @@ fetch_calibration:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1
+    export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1
     timeout --signal=TERM 2400 python .treqs/scripts/prepare_droid_calibration.py
   trace: "run"
 
@@ -65,7 +65,7 @@ train:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
+    export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
     timeout --signal=TERM --kill-after=30 7200 python -m scripts.calibration_droid run --plan .treqs/calibration/plan.json --config .treqs/calibration/resolved-config.json --output artifacts/droid-calibration/points
   trace: "run"
 
@@ -73,7 +73,7 @@ package:
   command: |
     set -euo pipefail
     export PATH="$PWD/.venv/bin:/usr/local/bin:/opt/pytorch/bin:$PATH"
-    export PYTHONPATH="$PWD" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
+    export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" HF_HOME=/tmp/isaac-groot-calibration-hf HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
     timeout --signal=TERM 1200 python .treqs/scripts/package_droid_calibration.py
   trace: "run"
 

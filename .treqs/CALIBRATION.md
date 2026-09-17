@@ -71,3 +71,5 @@ pytest -q tests/treqs/test_droid_canary_contract.py \
 
 Tests include real CPU Transformers training with the early-stop callback and real
 safetensors checkpoint packaging. They do not establish GPU memory fit or throughput.
+
+Child stdout/stderr is streamed into host-captured workload logs and retained in each point log. Workflow path additions preserve injected Python bootstrap paths.
