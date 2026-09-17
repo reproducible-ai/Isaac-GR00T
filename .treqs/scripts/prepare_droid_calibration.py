@@ -16,6 +16,22 @@ ROOT = Path("artifacts/droid-calibration")
 INPUTS = ROOT / "inputs"
 
 
+def storage_inventory(block_root=Path("/sys/block")):
+    """Nitro exposes EBS identity and capacity through ordinary kernel block devices."""
+    volumes = []
+    for device in sorted(block_root.glob("nvme*n1")):
+        model = (device / "device/model").read_text().strip()
+        if model != "Amazon Elastic Block Store":
+            continue
+        size = int((device / "size").read_text()) * 512
+        if size <= 0:
+            raise RuntimeError("invalid attached EBS capacity")
+        volumes.append({"device": device.name, "model": model, "sizeBytes": size})
+    if not volumes or sum(volume["sizeBytes"] for volume in volumes) > 1024**4:
+        raise RuntimeError("allocation storage is outside the reviewed 1 TiB EBS allowance")
+    return volumes
+
+
 def main():
     from huggingface_hub import snapshot_download
     import torch
@@ -34,6 +50,7 @@ def main():
     token = os.environ.get("HF_TOKEN")
     if not token:
         raise RuntimeError("HF_TOKEN is required for the pinned gated models")
+    volumes = storage_inventory()
     INPUTS.mkdir(parents=True, exist_ok=True)
     base = snapshot_download(
         "nvidia/GR00T-N1.7-3B",
@@ -90,6 +107,7 @@ def main():
         "episodes": 32,
         "planSha256": sha256_file(".treqs/calibration/plan.json"),
         "hardware": expected,
+        "attachedEbsVolumes": volumes,
         "torch": str(torch.__version__),
         "cuda": torch.version.cuda,
     }
